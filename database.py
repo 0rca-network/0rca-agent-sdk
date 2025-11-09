@@ -74,6 +74,16 @@ def update_job_payment_processing(job_id, txn_ids):
         """, (','.join(txn_ids), job_id))
         conn.commit()
 
+def update_job_status(job_id, status):
+    """Update job status"""
+    with get_db() as conn:
+        conn.execute("""
+            UPDATE jobs_local 
+            SET status = ?
+            WHERE job_id = ?
+        """, (status, job_id))
+        conn.commit()
+
 def get_job(job_id):
     """Get job by ID"""
     with get_db() as conn:
