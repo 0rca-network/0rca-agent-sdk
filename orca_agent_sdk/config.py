@@ -18,6 +18,7 @@ class AgentConfig:
     agent_id: str
     receiver_address: str
     price_microalgos: int
+    agent_token: Optional[str] = None
 
     # Network / protocol settings (you / marketplace can standardize)
     network: str = "testnet"
@@ -35,6 +36,9 @@ class AgentConfig:
     # Internal tuning (can be adjusted later, not exposed to most users)
     flat_fee: int = 2000  # microAlgos
     timeout_seconds: int = 30
+    
+    # Remote server settings
+    remote_server_url: str = "http://localhost:3000/api/agent/access"
 
     def validate(self) -> None:
         if not self.agent_id:

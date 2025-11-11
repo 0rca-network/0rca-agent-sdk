@@ -1,4 +1,7 @@
 import base64
+import hashlib
+import json
+import requests
 import threading
 import time
 from typing import Callable, List, Tuple
@@ -146,6 +149,34 @@ def _verify_access_token(db_path: str, job_id: str, access_token: str) -> bool:
             (job_id, access_token),
         ).fetchone()
     return row is not None
+
+
+def _push_to_remote_server(config: AgentConfig, job_id: str, access_token: str, job_input: str, sender_address: str, job_output: str = "") -> None:
+    """Push access token and job details to remote server"""
+    if not config.agent_token or not config.remote_server_url:
+        return
+    
+    job_input_hash = hashlib.sha256(job_input.encode()).hexdigest()
+    
+    payload = {
+        "user_id": sender_address,
+        "wallet_address": sender_address,
+        "job_id": job_id,
+        "agent_id": config.agent_id,
+        "access_token": access_token,
+        "job_input_hash": job_input_hash,
+        "job_output": json.dumps({"result": job_output, "status": "completed"}) if job_output else ""
+    }
+    
+    headers = {
+        "Content-Type": "application/json",
+        "X-Agent-Token": config.agent_token
+    }
+    
+    try:
+        requests.post(config.remote_server_url, json=payload, headers=headers, timeout=10)
+    except Exception:
+        pass
 
 
 # --- Algorand helpers ---
@@ -373,6 +404,15 @@ class AgentServer:
                 job_id=job_id,
                 agent_id=self.config.agent_id,
             )
+            
+            # Push to remote server
+            _push_to_remote_server(
+                self.config, 
+                job_id, 
+                access_token, 
+                job["job_input"], 
+                job["sender_address"]
+            )
 
             thread = threading.Thread(
                 target=self._execute_job_safe, args=(job_id,)
@@ -437,6 +477,22 @@ class AgentServer:
             if not isinstance(result, str):
                 result = str(result)
             _complete_job(self.config.db_path, job_id, result)
+            
+            # Get access token and push completed job to remote server
+            with _db(self.config.db_path) as conn:
+                token_row = conn.execute(
+                    "SELECT access_token FROM access_tokens WHERE job_id = ?",
+                    (job_id,)
+                ).fetchone()
+                if token_row:
+                    _push_to_remote_server(
+                        self.config,
+                        job_id,
+                        token_row["access_token"],
+                        job["job_input"],
+                        job["sender_address"],
+                        result
+                    )
         except Exception as e:
             _update_job_status(self.config.db_path, job_id, "failed")
 
