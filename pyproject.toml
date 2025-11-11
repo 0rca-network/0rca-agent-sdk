@@ -1,26 +1,37 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "orca-agent-sdk"
-version = "0.1.1"
-description = "Opinionated SDK for paid Algorand-verified AI agents with a single handler entrypoint."
+version = "0.1.0"
+description = "A production-ready Python SDK for running paid AI agents on your marketplace"
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [
-  { name = "Orca", email = "dev@your-domain.com" }
-]
 license = "MIT"
-dependencies = [
-  "Flask>=3.0.0",
-  "py-algorand-sdk>=2.0.0",
-  "algokit-utils>=4.0.0"
+authors = [
+    {name = "0rca Network", email = "contact@0rca.network"}
 ]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "flask>=2.0.0",
+    "py-algorand-sdk>=2.0.0",
+    "algokit-utils>=2.0.0",
+    "requests>=2.25.0",
+]
+
+[project.optional-dependencies]
+agno = ["agno"]
 
 [project.urls]
-Homepage = "https://github.com/your-org/orca-agent-sdk"
-Source = "https://github.com/your-org/orca-agent-sdk"
-
-[tool.setuptools]
-packages = ["orca_agent_sdk"]
+Homepage = "https://github.com/0rca-network/0rca-agent-sdk"
+Repository = "https://github.com/0rca-network/0rca-agent-sdk"
+Issues = "https://github.com/0rca-network/0rca-agent-sdk/issues"

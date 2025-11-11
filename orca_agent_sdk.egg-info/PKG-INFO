@@ -1,16 +1,29 @@
 Metadata-Version: 2.4
 Name: orca-agent-sdk
-Version: 0.1.1
-Summary: Opinionated SDK for paid Algorand-verified AI agents with a single handler entrypoint.
-Author-email: Orca <dev@your-domain.com>
+Version: 0.1.0
+Summary: A production-ready Python SDK for running paid AI agents on your marketplace
+Author-email: 0rca Network <contact@0rca.network>
 License-Expression: MIT
-Project-URL: Homepage, https://github.com/your-org/orca-agent-sdk
-Project-URL: Source, https://github.com/your-org/orca-agent-sdk
+Project-URL: Homepage, https://github.com/0rca-network/0rca-agent-sdk
+Project-URL: Repository, https://github.com/0rca-network/0rca-agent-sdk
+Project-URL: Issues, https://github.com/0rca-network/0rca-agent-sdk/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: Flask>=3.0.0
+License-File: LICENSE
+Requires-Dist: flask>=2.0.0
 Requires-Dist: py-algorand-sdk>=2.0.0
-Requires-Dist: algokit-utils>=4.0.0
+Requires-Dist: algokit-utils>=2.0.0
+Requires-Dist: requests>=2.25.0
+Provides-Extra: agno
+Requires-Dist: agno; extra == "agno"
+Dynamic: license-file
 
 # orca-agent-sdk
 
