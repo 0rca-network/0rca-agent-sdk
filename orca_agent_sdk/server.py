@@ -331,10 +331,32 @@ class AgentServer:
 
         @app.route("/", methods=["GET"])
         def health():
+            """
+            Health check: GET /
+            
+            Response: "Orca Agent SDK Server Running"
+            """
             return "Orca Agent SDK Server Running"
 
         @app.route("/start_job", methods=["POST"])
         def start_job():
+            """
+            Create job: POST /start_job
+            
+            Request:
+            {
+                "sender_address": "USER_ALGO_ADDRESS",
+                "job_input": "User request or prompt"
+            }
+            
+            Response:
+            {
+                "job_id": "J1762754481290",
+                "unsigned_group_txns": ["...base64_txn_1...", "...base64_txn_2..."],
+                "txn_ids": ["EXPECTED_TXID_1", "EXPECTED_TXID_2"],
+                "payment_required": 1000000
+            }
+            """
             data = request.get_json() or {}
             sender_address = data.get("sender_address")
             job_input = data.get("job_input")
@@ -372,6 +394,28 @@ class AgentServer:
 
         @app.route("/submit_payment", methods=["POST"])
         def submit_payment():
+            """
+            Verify payment: POST /submit_payment
+            
+            Request:
+            {
+                "job_id": "J1762754481290",
+                "txid": ["REAL_TXID_1", "REAL_TXID_2"]
+            }
+            
+            Response (success):
+            {
+                "status": "success",
+                "message": "Payment verified, job started",
+                "access_token": "ACCESS_TOKEN_VALUE"
+            }
+            
+            Response (error - 402):
+            {
+                "status": "error",
+                "message": "Payment verification failed reason"
+            }
+            """
             data = request.get_json() or {}
             job_id = data.get("job_id")
             txids = data.get("txid")
@@ -395,7 +439,7 @@ class AgentServer:
 
             if not ok:
                 _update_job_status(self.config.db_path, job_id, "failed")
-                return jsonify({"status": "error", "message": msg}), 400
+                return jsonify({"status": "error", "message": msg}), 402
 
             # Mark running, create token, start execution
             _update_job_status(self.config.db_path, job_id, "running")
@@ -430,6 +474,26 @@ class AgentServer:
 
         @app.route("/job/<job_id>", methods=["GET"])
         def get_job(job_id: str):
+            """
+            Retrieve result: GET /job/<job_id>[?access_token=TOKEN]
+            
+            Without access token (public view):
+            {
+                "job_id": "J1762754481290",
+                "status": "running",
+                "created_at": 1762754481,
+                "output": null
+            }
+            
+            With valid access_token:
+            {
+                "job_id": "J1762754481290",
+                "status": "succeeded",
+                "created_at": 1762754481,
+                "completed_at": 1762754504,
+                "output": "Echo: Hello from local SDK test"
+            }
+            """
             token = request.args.get("access_token")
             job = _get_job(self.config.db_path, job_id)
             if not job:

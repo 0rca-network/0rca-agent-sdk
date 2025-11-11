@@ -2,7 +2,6 @@ LICENSE
 MANIFEST.in
 README.md
 pyproject.toml
-requirements.txt
 orca_agent_sdk/__init__.py
 orca_agent_sdk/config.py
 orca_agent_sdk/server.py
