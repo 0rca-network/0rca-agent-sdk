@@ -7,6 +7,7 @@ import time
 from typing import Callable, List, Tuple
 
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from algosdk.v2client import algod, indexer
 from algosdk.atomic_transaction_composer import (
     AtomicTransactionComposer,
@@ -322,6 +323,7 @@ class AgentServer:
         )
 
         self.app = Flask(__name__)
+        CORS(self.app)
         self._register_routes()
 
     # --- Flask routes ---

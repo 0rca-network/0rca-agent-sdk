@@ -1,5 +1,6 @@
 agno
 requests
 flask
+flask-cors
 py-algorand-sdk
 algokit-utils
