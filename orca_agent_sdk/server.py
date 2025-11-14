@@ -194,13 +194,15 @@ def _build_unsigned_group(
     Uses NoOpSigner that never signs transactions.
     """
     class NoOpSigner(TransactionSigner):
+        # Single-txn signing: return a bytes object (empty) not None
         def sign(self, *args, **kwargs):
-            # Return empty signatures for single txn signing
-            return []
+            return b""
 
-        def sign_transactions(self, *args, **kwargs):
-            # Return empty signatures for group signing
-            return []
+        # Group signing: must return a list of bytes-like objects, same length as txns
+        # Accept any extra args (indexes, etc.)
+        def sign_transactions(self, txns, *args, **kwargs):
+            # Return empty signature bytes for each transaction
+            return [b"" for _ in txns]
 
 
     
