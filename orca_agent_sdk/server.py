@@ -196,10 +196,13 @@ def _build_unsigned_group(
     """
     class NoOpSigner(TransactionSigner):
         def sign(self, *args, **kwargs):
-            raise Exception("Unsigned transaction composer")
+            # Return empty signatures for single txn signing
+            return []
 
         def sign_transactions(self, *args, **kwargs):
-            raise Exception("Unsigned transaction composer")
+            # Return empty signatures for group signing
+            return []
+
 
     
     method = Method.from_signature("pay(pay)void")
