@@ -11,9 +11,9 @@ from flask_cors import CORS
 from algosdk.v2client import algod, indexer
 from algosdk.atomic_transaction_composer import (
     AtomicTransactionComposer,
-    AccountTransactionSigner,
     TransactionWithSigner,
 )
+from algosdk.transaction import TransactionSigner
 from algosdk.transaction import PaymentTxn
 from algosdk.abi import Method
 from algosdk import mnemonic
@@ -191,17 +191,17 @@ def _build_unsigned_group(
     - Payment of cfg.price_microalgos from sender -> cfg.receiver_address
     - App call to cfg.app_id using method 'pay(pay)void'
 
-    Uses a dummy signer only for ATC assembly; caller returns base64-encoded txns.
+    Uses NoOpSigner that never signs transactions.
     """
+    class NoOpSigner(TransactionSigner):
+        def sign(self, txn_group):
+            raise Exception("Unsigned transaction composer")
+        
+        def sign_transactions(self, txns):
+            raise Exception("This signer does not sign transactions.")
+    
     method = Method.from_signature("pay(pay)void")
-
-    # Dummy key ONLY for building txns; never used for signing on-chain.
-    dummy_mn = (
-        "announce feed swing base certain rib rose phrase crouch rotate voyage enroll "
-        "same sort flush emotion pulp airport notice inject pelican zero blossom about honey"
-    )
-    dummy_sk = mnemonic.to_private_key(dummy_mn)
-    signer = AccountTransactionSigner(dummy_sk)
+    signer = NoOpSigner()
 
     atc = AtomicTransactionComposer()
     sp = client.suggested_params()
@@ -227,7 +227,7 @@ def _build_unsigned_group(
         ],
     )
 
-    atc = populate_app_call_resources(atc, client)
+    # Skip populate_app_call_resources to avoid simulation
     group = atc.build_group()
 
     unsigned_txns: List[str] = []
@@ -235,13 +235,12 @@ def _build_unsigned_group(
 
     for tws in group:
         txn = tws.txn
-        txid = txn.get_txid()
-        txn_ids.append(txid)
+        txn_ids.append(txn.get_txid())
 
-        unsigned_bytes = msgpack_encode(txn)
-        if isinstance(unsigned_bytes, str):
-            unsigned_bytes = unsigned_bytes.encode()
-        unsigned_txns.append(base64.b64encode(unsigned_bytes).decode())
+        packed = msgpack_encode(txn)
+        if isinstance(packed, str):
+            packed = packed.encode()
+        unsigned_txns.append(base64.b64encode(packed).decode())
 
     return unsigned_txns, txn_ids
 
