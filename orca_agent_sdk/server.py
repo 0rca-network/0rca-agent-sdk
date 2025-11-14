@@ -14,6 +14,7 @@ from algosdk.atomic_transaction_composer import (
     TransactionWithSigner,
     TransactionSigner
 )
+from algosdk.transaction import SignedTransaction
 
 from algosdk.transaction import PaymentTxn
 from algosdk.abi import Method
@@ -194,16 +195,14 @@ def _build_unsigned_group(
     Uses NoOpSigner that never signs transactions.
     """
     class NoOpSigner(TransactionSigner):
-        # Single-txn signing: return a bytes object (empty) not None
-        def sign(self, *args, **kwargs):
-            return b""
+        # For single-txn signing API
+        def sign(self, txn, *args, **kwargs):
+            # return a SignedTransaction with empty signature (placeholder for simulation)
+            return SignedTransaction(txn, b"")
 
-        # Group signing: must return a list of bytes-like objects, same length as txns
-        # Accept any extra args (indexes, etc.)
+        # For group signing API: return a list of SignedTransaction objects
         def sign_transactions(self, txns, *args, **kwargs):
-            # Return empty signature bytes for each transaction
-            return [b"" for _ in txns]
-
+            return [SignedTransaction(txn, b"") for txn in txns]
 
     
     method = Method.from_signature("pay(pay)void")
