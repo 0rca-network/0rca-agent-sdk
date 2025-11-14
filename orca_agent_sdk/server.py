@@ -17,7 +17,6 @@ from algosdk.atomic_transaction_composer import (
 
 from algosdk.transaction import PaymentTxn
 from algosdk.abi import Method
-from algosdk import mnemonic
 from algokit_utils.transactions.transaction_composer import populate_app_call_resources
 from algosdk.encoding import msgpack_encode
 import sqlite3

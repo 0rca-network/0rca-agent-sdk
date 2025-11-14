@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orca-agent-sdk
-Version: 0.1.5
+Version: 0.1.6
 Summary: A production-ready Python SDK for running paid AI agents on your marketplace
 Author-email: 0rca Network <contact@0rca.network>
 License-Expression: MIT
