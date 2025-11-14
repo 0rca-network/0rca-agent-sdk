@@ -12,8 +12,9 @@ from algosdk.v2client import algod, indexer
 from algosdk.atomic_transaction_composer import (
     AtomicTransactionComposer,
     TransactionWithSigner,
+    TransactionSigner
 )
-from algosdk.transaction import TransactionSigner
+
 from algosdk.transaction import PaymentTxn
 from algosdk.abi import Method
 from algosdk import mnemonic
@@ -194,11 +195,12 @@ def _build_unsigned_group(
     Uses NoOpSigner that never signs transactions.
     """
     class NoOpSigner(TransactionSigner):
-        def sign(self, txn_group):
+        def sign(self, *args, **kwargs):
             raise Exception("Unsigned transaction composer")
-        
-        def sign_transactions(self, txns):
-            raise Exception("This signer does not sign transactions.")
+
+        def sign_transactions(self, *args, **kwargs):
+            raise Exception("Unsigned transaction composer")
+
     
     method = Method.from_signature("pay(pay)void")
     signer = NoOpSigner()
@@ -227,7 +229,7 @@ def _build_unsigned_group(
         ],
     )
 
-    # Skip populate_app_call_resources to avoid simulation
+    atc = populate_app_call_resources(atc, client)
     group = atc.build_group()
 
     unsigned_txns: List[str] = []
