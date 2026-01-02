@@ -19,33 +19,40 @@ class CryptoComBackend(AbstractAgentBackend):
             logging.warning("crypto_com_agent_client not installed. CDC Backend will fail if utilized.")
             return
 
-        # Initialize the CDC Agent if keys are present
-        if self.config.cdc_api_key:
-            self.agent = Agent.init(
-                llm_config={
-                    "provider": "OpenAI", # Defaulting for now alongside CDC
-                    "model": "gpt-4",
-                    "provider-api-key": self.config.backend_options.get("openai_key", "sk-placeholder"),
-                    "temperature": 0.7,
-                },
-                blockchain_config={
-                    "api-key": self.config.cdc_api_key,
-                    "private-key": self.config.cdc_private_key or "",
-                    "sso-wallet-url": self.config.cdc_sso_wallet_url or "",
-                    "timeout": 30
-                },
-                plugins={
-                    # Example default instructions. User handler is separate in this architecture.
-                    "instructions": "You are an agent powered by Orca SDK and Crypto.com."
-                }
-            )
+        # Initialize the CDC Agent if config is present
+        llm_provider = self.config.backend_options.get("provider", "GoogleGenAI")
+        llm_model = self.config.backend_options.get("model", "gemini-2.0-flash")
+        
+        # Use provided key or fallback to environment variable
+        provider_key = self.config.backend_options.get("provider_api_key") or self.config.cdc_api_key
+
+        print(f"Initializing CDC Agent with provider {llm_provider}...")
+        self.agent = Agent.init(
+            llm_config={
+                "provider": llm_provider,
+                "model": llm_model,
+                "provider-api-key": provider_key,
+                "temperature": self.config.backend_options.get("temperature", 0.7),
+            },
+            blockchain_config={
+                "api-key": self.config.cdc_api_key or "placeholder",
+                "private-key": self.config.cdc_private_key or "",
+                "sso-wallet-url": self.config.cdc_sso_wallet_url or "",
+                "timeout": 30
+            },
+            plugins=self.config.backend_options.get("plugins", {
+                "instructions": "You are a sovereign agent powered by Orca SDK and Crypto.com."
+            })
+        )
+        print("CDC Agent initialized successfully.")
 
     def handle_prompt(self, prompt: str) -> str:
         if self.agent:
-            # CDC SDK usage: agent.run(prompt) presumably
-            # Assuming standard interface
-            # return self.agent.run(prompt)
-            pass
+            try:
+                # Trying interact() based on search results
+                response = self.agent.interact(prompt)
+                return str(response)
+            except Exception as e:
+                return f"Error from CDC Agent: {str(e)}"
         
-        # Fallback purely to demonstrate structure if SDK not live:
-        return f"[Crypto.com Backend] {prompt}"
+        return f"[Crypto.com Backend Fallback] Received: {prompt}"
