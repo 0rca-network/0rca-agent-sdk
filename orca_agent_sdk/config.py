@@ -28,6 +28,7 @@ class AgentConfig:
     
     # Local persistence
     db_path: str = "agent_local.db"
+    identity_wallet_path: str = "agent_identity.json"
 
     # Internal timeout
     timeout_seconds: int = 30

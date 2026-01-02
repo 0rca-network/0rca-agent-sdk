@@ -10,6 +10,7 @@ from .config import AgentConfig
 from .core.payment import PaymentManager
 from .core.persistence import init_db, log_request, update_request_success, update_request_failed
 from .core.a2a import AgentRegistry, A2AProtocol
+from .core.wallet import AgentWalletManager
 
 from .backends.base import AbstractAgentBackend
 from .backends.crewai_backend import CrewAIBackend
@@ -31,7 +32,17 @@ class AgentServer:
         # 2. Initialize Payment
         self.payment = PaymentManager(self.config)
 
-        # 3. Initialize A2A
+        # 3. Initialize Identity Wallet
+        self.wallet_manager = AgentWalletManager(self.config.identity_wallet_path)
+        self.agent_wallet_address = self.wallet_manager.address
+        self._agent_private_key = self.wallet_manager._private_key
+
+        print("--------------------------------------------------")
+        print(f"Agent Identity Wallet: {self.agent_wallet_address}")
+        print(f"Creator Payout Wallet: {self.config.wallet_address}")
+        print("--------------------------------------------------")
+
+        # 4. Initialize A2A
         self.registry = AgentRegistry()
         self.registry.register(
             agent_id=self.config.agent_id,
@@ -40,10 +51,10 @@ class AgentServer:
         )
         self.a2a = A2AProtocol(self.config.agent_id, self.registry)
 
-        # 4. Initialize Backend
+        # 5. Initialize Backend
         self.backend = self._load_backend(handler)
         
-        # 5. Setup Flask
+        # 6. Setup Flask
         self.app = Flask(__name__)
         CORS(self.app)
         self._register_routes()
