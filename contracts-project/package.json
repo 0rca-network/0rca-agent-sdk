@@ -1,0 +1,16 @@
+{
+    "name": "contracts-project",
+    "version": "1.0.0",
+    "description": "Smart contracts for 0rca Agent Escrow",
+    "main": "index.js",
+    "scripts": {
+        "test": "hardhat test"
+    },
+    "devDependencies": {
+        "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+        "hardhat": "^2.22.0"
+    },
+    "dependencies": {
+        "@openzeppelin/contracts": "^5.0.0"
+    }
+}

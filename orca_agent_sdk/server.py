@@ -11,7 +11,8 @@ import sqlite3
 from x402 import X402
 
 from .config import AgentConfig
-
+from .a2a.registry import AgentRegistry
+from .a2a.protocol import A2AProtocol
 
 # --- Internal DB helpers ---
 
@@ -100,6 +101,17 @@ class AgentServer:
         # Initialize x402 util
         self.x402 = X402()
 
+        # Initialize A2A
+        self.registry = AgentRegistry()
+        # Self-register (in a real app, this might happen via a central registry service)
+        # For now, we register ourselves so we are aware of our own identity
+        self.registry.register(
+            agent_id=self.config.agent_id,
+            endpoint=f"http://localhost:8000", # TODO: Make configurable
+            name=self.config.agent_id
+        )
+        self.a2a = A2AProtocol(self.config.agent_id, self.registry)
+
         _init_db(self.config.db_path)
 
         self.app = Flask(__name__)
@@ -121,7 +133,70 @@ class AgentServer:
 
         @app.route("/", methods=["GET"])
         def health():
-            return "Orca Agent SDK (x402 enabled) Running"
+            return "Orca Agent SDK (x402 + A2A enabled) Running"
+        
+        # --- A2A Endpoints ---
+        
+        @app.route("/a2a/send", methods=["POST"])
+        def a2a_send():
+            """
+            Internal endpoint to trigger sending a message to another agent.
+            Client -> Agent -> Target Agent
+            """
+            data = request.json or {}
+            to_agent = data.get("to")
+            action = data.get("action")
+            payload = data.get("payload", {})
+            
+            if not to_agent or not action:
+                return jsonify({"error": "Missing 'to' or 'action'"}), 400
+                
+            try:
+                # If target not in local registry, we can't send.
+                # In real world, we might fetch from central registry here.
+                if not self.registry.get_agent(to_agent):
+                    # Fallback: if user provided endpoint in payload? No, keep it simple.
+                    return jsonify({"error": f"Agent {to_agent} unknown"}), 404
+                    
+                resp = self.a2a.send_message(to_agent, action, payload)
+                return jsonify({"status": "sent", "response": resp}), 200
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+
+        @app.route("/a2a/receive", methods=["POST"])
+        def a2a_receive():
+            """
+            Endpoint receiving messages from OTHER agents.
+            """
+            try:
+                msg = self.a2a.receive_message(request.json)
+                
+                # Handle the task
+                task = msg["task"]
+                action = task["action"]
+                payload = task["payload"]
+                
+                # Only handle 'chat' action for now as default
+                if action == "chat":
+                    prompt = payload.get("prompt", "")
+                    # Execute logic (maybe skip payment for A2A if mutually trusted, or require payment token in payload)
+                    # For now: Trust A2A
+                    result = self.handler(prompt)
+                    return jsonify({
+                        "header": {
+                             "from": self.config.agent_id,
+                             "timestamp": int(time.time() * 1000)
+                        },
+                        "task": {
+                            "action": "chat_response",
+                            "payload": {"result": result}
+                        }
+                    })
+                
+                return jsonify({"error": f"Unknown action: {action}"}), 400
+                
+            except Exception as e:
+                return jsonify({"error": str(e)}), 400
 
         @app.route("/agent", methods=["POST"])
         def handle_agent_request():

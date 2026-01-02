@@ -1,0 +1,17 @@
+node_modules
+artifacts
+cache
+coverage
+coverage.json
+typechain-types
+typechain
+
+# Hardhat files
+cache
+artifacts
+
+# Environment variables
+.env
+
+# Testing
+test-results.xml
