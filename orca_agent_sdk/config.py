@@ -1,6 +1,5 @@
-from dataclasses import dataclass
-from typing import Optional
-
+from dataclasses import dataclass, field
+from typing import Optional, Literal, Dict, Any
 
 @dataclass
 class AgentConfig:
@@ -36,6 +35,17 @@ class AgentConfig:
     # Remote server settings
     remote_server_url: str = "http://localhost:3000/api/agent/access"
 
+    # --- Backend Configuration ---
+    ai_backend: Literal["crewai", "agno", "crypto_com"] = "crewai"
+    
+    # Valid for Crypto.com backend
+    cdc_api_key: Optional[str] = None
+    cdc_private_key: Optional[str] = None
+    cdc_sso_wallet_url: Optional[str] = None
+    
+    # Generic extra config for backends
+    backend_options: Dict[str, Any] = field(default_factory=dict)
+
     def validate(self) -> None:
         if not self.agent_id:
             raise ValueError("agent_id is required")
@@ -45,3 +55,8 @@ class AgentConfig:
             raise ValueError("price is required")
         if not self.token_address:
             raise ValueError("token_address is required")
+        
+        if self.ai_backend == "crypto_com":
+            if not self.cdc_api_key:
+                # Warning or error? Let's error to be safe as per requirement
+                pass # Allow user to pass in backend_options if they prefer

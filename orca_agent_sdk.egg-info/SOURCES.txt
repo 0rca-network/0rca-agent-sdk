@@ -10,3 +10,12 @@ orca_agent_sdk.egg-info/SOURCES.txt
 orca_agent_sdk.egg-info/dependency_links.txt
 orca_agent_sdk.egg-info/requires.txt
 orca_agent_sdk.egg-info/top_level.txt
+orca_agent_sdk/a2a/protocol.py
+orca_agent_sdk/a2a/registry.py
+orca_agent_sdk/backends/agno_backend.py
+orca_agent_sdk/backends/base.py
+orca_agent_sdk/backends/crewai_backend.py
+orca_agent_sdk/backends/crypto_com_backend.py
+orca_agent_sdk/core/a2a.py
+orca_agent_sdk/core/payment.py
+orca_agent_sdk/core/persistence.py
