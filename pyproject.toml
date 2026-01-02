@@ -3,17 +3,17 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "orca-agent-sdk"
-version = "0.1.8"
-description = "A production-ready Python SDK for running paid AI agents on your marketplace"
+name = "0rca-agent-sdk"
+version = "1.0.0"
+description = "Production-ready Python SDK for launching, monetizing, and orchestrating AI Agents via ERC-8004"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "0rca Network", email = "contact@0rca.network"}
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -24,13 +24,16 @@ classifiers = [
 dependencies = [
     "flask>=2.0.0",
     "flask-cors>=4.0.0",
-    "py-algorand-sdk>=2.0.0",
-    "algokit-utils>=2.0.0",
     "requests>=2.25.0",
+    "web3>=7.0.0",
+    "eth-account>=0.13.0",
 ]
 
 [project.optional-dependencies]
 agno = ["agno"]
+
+[project.scripts]
+orca-agent = "orca_agent_sdk.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/0rca-network/0rca-agent-sdk"

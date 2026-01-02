@@ -1,3 +1,4 @@
 include README.md
 include LICENSE
 recursive-include orca_agent_sdk *.py
+recursive-include orca_agent_sdk *.json

@@ -1,214 +1,94 @@
-# orca-agent-sdk
+# 0rca Agent SDK
 
-A production-ready Python SDK for running paid AI agents on your marketplace with a single, consistent protocol.
+[![PyPI version](https://img.shields.io/pypi/v/0rca-agent-sdk.svg)](https://pypi.org/project/0rca-agent-sdk/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-orca-agent-sdk abstracts away:
+**0rca Agent SDK** is a production-ready framework for building **Sovereign, Monetizable, and Orchestrated AI Agents**. It transforms standard AI agents (CrewAI, Agno, LangChain) into independent economic actors on the blockchain.
 
-- HTTP server and routing
-- Persistent job storage (SQLite)
-- Algorand unsigned transaction generation
-- On-chain payment verification
-- Access token–gated result delivery
-- Background job execution
+## 🚀 Key Features
 
-Agent developers implement one handler function and a small configuration object. Your marketplace controls the payment and verification flow.
+- **Autonomous Monetization (x402 Protocol)**: Built-in support for HTTP 402 "Payment Required" flows. Agents handle their own pricing and payment verification.
+- **Sovereign Identity**: Every agent instance is a self-sovereign entity with its own EVM wallet and identity.
+- **ERC-8004 Integration**: Native support for trustless agent communication and escrowed payments.
+- **Multi-Backend support**: Pluggable architecture for your favorite AI frameworks:
+  - [CrewAI](https://crewai.com)
+  - [Agno](https://agno.com)
+  - [Crypto.com AI Agent SDK](https://github.com/crypto-com/ai-agent-sdk)
+- **Agent-to-Agent (A2A) Messaging**: Standardized protocol for agents to find, chat, and collaborate with each other.
+- **Production Persistence**: SQLite-based logging and state management for every request and payment.
 
----
-
-## 1. Primary use case
-
-Enable third-party developers to publish AI agents to your marketplace with:
-
-- No direct exposure to:
-  - Flask or HTTP internals
-  - Database schema or SQL
-  - Algorand SDK details or on-chain verification logic
-- A standard, enforceable protocol:
-  - Jobs are created via `/start_job`
-  - Payments are enforced on Algorand
-  - Results are released only after verified payment via `/submit_payment`
-  - Access to outputs is controlled with per-job access tokens
-
-This ensures:
-
-- Consistent integration across all agents
-- Security and integrity of the payment flow
-- Minimal onboarding friction for developers
-
----
-
-## 2. Installation
-
-For MVP and testing (TestPyPI):
+## 📦 Installation
 
 ```bash
-pip install -i https://test.pypi.org/simple/ orca-agent-sdk
+pip install 0rca-agent-sdk
 ```
 
-(Once promoted to PyPI:)
+## 🛠 Quick Start
 
-```bash
-pip install orca-agent-sdk
-```
-
-Requirements:
-
-- Python 3.10+
-- Network access to Algorand nodes (defaults to Algonode public endpoints)
-
----
-
-## 3. Quick start for agent developers
-
-Agent developers define:
-
-- `handle_task(job_input: str) -> str`
-- `AgentConfig` with identity and pricing
-- Bootstrapping using `AgentServer`
-
-Example:
+### 1. Create your Agent Handler
 
 ```python
 from orca_agent_sdk import AgentConfig, AgentServer
 
-def handle_task(job_input: str) -> str:
-    # Implement your agent's core logic here
-    # e.g., call an LLM, tools, vector search, etc.
-    return f"Echo: {job_input}"
+def handle_prompt(prompt: str) -> str:
+    # Your core agent logic (LLM calls, tool usage, etc.)
+    return f"Processed: {prompt}"
 
-if __name__ == "__main__":
-    config = AgentConfig(
-        agent_id="my-agent-id",               # Unique identifier used by the marketplace
-        receiver_address="MY_ALGO_ADDRESS",  # Algorand address to receive payments
-        price_microalgos=1_000_000,          # Price per job in microAlgos
-        # Optionally:
-        # app_id=YOUR_MARKETPLACE_APP_ID,
-        # algod_url="https://testnet-api.algonode.cloud",
-        # indexer_url="https://testnet-idx.algonode.cloud",
-    )
+# Configure your sovereign agent
+config = AgentConfig(
+    agent_id="my-sovereign-agent",
+    wallet_address="0xYourCreatorWallet...", # Where you receive payments
+    price=10.0,                              # Price per request
+    token_address="0xTokenAddress...",       # USDC, CRO, etc.
+    chain_caip="eip155:25",                  # Cronos Mainnet
+    ai_backend="crewai"                      # Your preferred backend
+)
 
-    AgentServer(config=config, handler=handle_task).run()
+# Start the agent server
+server = AgentServer(config, handle_prompt)
+server.run(port=8000)
 ```
 
-When this script runs, the SDK exposes the standardized API surface required by your marketplace.
+### 2. Built-in Contract Interaction
+The SDK comes bundled with ABIs for the 0rca Network protocol contracts:
+
+```python
+from orca_agent_sdk import load_abi
+
+# Load a specific ABI
+escrow_abi = load_abi("AgentEscrow")
+identity_abi = load_abi("IdentityRegistry")
+```
+
+## 📜 Included Contracts (ERC-8004)
+The SDK includes support and ABIs for the following production-level contracts:
+- **AgentEscrow**: Trustless holding of payments until agent delivery.
+- **IdentityRegistry**: Decentralized registration of agent identities.
+- **ReputationRegistry**: On-chain trust and performance tracking.
+- **ValidationRegistry**: Verification of agent outputs.
+
+## 🤖 A2A Protocol
+Agents can communicate using the built-in A2A endpoints. The SDK handles message headers, timestamps, and routing between agent servers.
+
+```bash
+# Example A2A message
+curl -X POST http://localhost:8000/a2a/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "another-agent-id",
+    "action": "chat",
+    "payload": {"prompt": "Hello!"}
+  }'
+```
+
+## 🏗 Architecture
+- **`/agent`**: The main public entrance gated by **x402**.
+- **`/a2a`**: Message routing for inter-agent communication.
+- **`orca_agent_sdk/core`**: Heart of the SDK handling payments, identity, and persistence.
+- **`orca_agent_sdk/backends`**: Adapters for different AI frameworks.
+
+## 📄 License
+MIT License. See [LICENSE](LICENSE) for details.
 
 ---
-
-## 4. Protocol overview (for marketplace integrators)
-
-The SDK exposes three key endpoints.
-
-### 4.1 Create job: `POST /start_job`
-
-Request:
-
-```json
-{
-  "sender_address": "USER_ALGO_ADDRESS",
-  "job_input": "User request or prompt"
-}
-```
-
-Response (example):
-
-```json
-{
-  "job_id": "J1762754481290",
-  "unsigned_group_txns": ["...base64_txn_1...", "...base64_txn_2..."],
-  "txn_ids": ["EXPECTED_TXID_1", "EXPECTED_TXID_2"],
-  "payment_required": 1000000
-}
-```
-
-Responsibilities:
-
-- SDK:
-  - Persists the job.
-  - Constructs an Algorand transaction group:
-    - Payment from `sender_address` to `receiver_address` for `price_microalgos`.
-    - Application call to `app_id` using the configured ABI method.
-  - Returns unsigned transactions for the client to sign.
-
-- Marketplace / client:
-  - Requests `unsigned_group_txns`.
-  - Presents them to the user’s wallet for signing and broadcasting.
-
----
-
-### 4.2 Verify payment: `POST /submit_payment`
-
-After broadcasting the signed transaction group, call:
-
-Request:
-
-```json
-{
-  "job_id": "J1762754481290",
-  "txid": [
-    "REAL_TXID_1",
-    "REAL_TXID_2"
-  ]
-}
-```
-
-SDK behavior:
-
-- Fetches on-chain transaction data via the configured Indexer.
-- Verifies:
-  - The provided txids match what was generated for that job.
-  - Sender matches the original `sender_address`.
-  - Payment receiver matches `receiver_address`.
-  - Amount equals `price_microalgos`.
-  - Application ID matches `app_id`.
-- On success:
-  - Marks the job as `running`.
-  - Issues an `access_token` bound to this job.
-  - Executes `handler(job_input)` asynchronously in the background.
-
-Response (example):
-
-```json
-{
-  "status": "success",
-  "message": "Payment verified, job started",
-  "access_token": "ACCESS_TOKEN_VALUE"
-}
-```
-
-If verification fails, the SDK returns an error and does not execute the handler.
-
----
-
-### 4.3 Retrieve result: `GET /job/<job_id>`
-
-Without access token (public view):
-
-```json
-{
-  "job_id": "J1762754481290",
-  "status": "running",
-  "created_at": 1762754481,
-  "output": null
-}
-```
-
-With valid `access_token`:
-
-`GET /job/J1762754481290?access_token=ACCESS_TOKEN_VALUE`
-
-```json
-{
-  "job_id": "J1762754481290",
-  "status": "succeeded",
-  "created_at": 1762754481,
-  "completed_at": 1762754504,
-  "output": "Echo: Hello from local SDK test"
-}
-```
-
-Design guarantees:
-
-- Output is only available to parties who can present the correct access token.
-- External observers can see job status but not sensitive results.
-
----
+Built with 💙 by [0rca Network](https://0rca.network)
