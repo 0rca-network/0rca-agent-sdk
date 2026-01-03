@@ -7,7 +7,7 @@ from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 
 from .config import AgentConfig
-from .core.payment import PaymentManager
+from .core.payment import PaymentManager, ToolPaywallError
 from .core.persistence import init_db, log_request, update_request_success, update_request_failed
 from .core.a2a import AgentRegistry, A2AProtocol
 from .core.wallet import AgentWalletManager
@@ -56,6 +56,7 @@ class AgentServer:
         
         # 6. Setup Flask
         self.app = Flask(__name__)
+        self.app.agent_server = self # Expose for decorators/utils
         CORS(self.app)
         self._register_routes()
 
@@ -116,6 +117,23 @@ class AgentServer:
             except Exception as e:
                 return jsonify({"error": str(e)}), 400
 
+        @app.route("/status", methods=["GET"])
+        def get_status():
+            try:
+                reg = self.registry.on_chain
+                rep = reg.get_agent_reputation(self.config.on_chain_id)
+                val = reg.get_validation_status(self.config.on_chain_id)
+                return jsonify({
+                    "agent_id": self.config.agent_id,
+                    "on_chain_id": self.config.on_chain_id,
+                    "reputation": rep,
+                    "validation": val,
+                    "payout_wallet": self.config.wallet_address or "Escrow-Only",
+                    "identity_wallet": self.agent_wallet_address
+                })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+
         # --- Public Agent Endpoint (x402 Gated) ---
         @app.route("/agent", methods=["POST"])
         def handle_agent_request():
@@ -133,15 +151,22 @@ class AgentServer:
                 is_test_bypass = request.headers.get("X-TEST-BYPASS") == "true"
 
                 if not signed_b64 and not is_test_bypass:
-                    accepts = self.payment.build_requirements()
-                    challenge = self.payment.encode_challenge(accepts)
-                    resp = make_response(jsonify({"message": "Payment required", "accepts": accepts}), 402)
-                    resp.headers["PAYMENT-REQUIRED"] = challenge
-                    resp.headers["Access-Control-Expose-Headers"] = "PAYMENT-REQUIRED"
-                    return resp
+                    price_val = 0
+                    try:
+                        price_val = float(self.config.price)
+                    except: pass
+                    
+                    if price_val > 0:
+                        accepts = self.payment.build_requirements()
+                        challenge = self.payment.encode_challenge(accepts)
+                        resp = make_response(jsonify({"message": "Payment required", "accepts": accepts}), 402)
+                        resp.headers["PAYMENT-REQUIRED"] = challenge
+                        resp.headers["Access-Control-Expose-Headers"] = "PAYMENT-REQUIRED"
+                        return resp
+
 
                 # 3. Verify Payment
-                if not is_test_bypass:
+                if not is_test_bypass and signed_b64 and price_val > 0:
                     try:
                         payment_obj = self.payment.decode_payment(signed_b64)
                         
@@ -190,6 +215,18 @@ class AgentServer:
                     result = self.backend.handle_prompt(prompt)
                     update_request_success(self.config.db_path, req_id, result, signed_b64)
                     return jsonify({"result": result}), 200
+                except ToolPaywallError as e:
+                    # Tool specific paywall triggered!
+                    accepts = self.payment.build_requirements(tool_name=e.tool_name)
+                    challenge = self.payment.encode_challenge(accepts)
+                    resp = make_response(jsonify({
+                        "message": f"Tool {e.tool_name} requires payment", 
+                        "tool": e.tool_name,
+                        "accepts": accepts
+                    }), 402)
+                    resp.headers["PAYMENT-REQUIRED"] = challenge
+                    resp.headers["Access-Control-Expose-Headers"] = "PAYMENT-REQUIRED"
+                    return resp
                 except Exception as e:
                     update_request_failed(self.config.db_path, req_id, str(e))
                     return jsonify({"error": "Backend execution failed"}), 500

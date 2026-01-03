@@ -8,22 +8,28 @@ class AgentConfig:
 
     Agent dev MUST provide:
     - agent_id: unique identifier
-    - wallet_address: EVM address where this agent receives payments
     - price: price per job in tokens (string, e.g. "0.25")
-    - token_address: valid token address on the network (or symbol if supported)
+    - on_chain_id: (Optional) ERC-8004 ID. Defaults to 0 if not provided.
 
-    The rest can be defaulted / controlled by your infra.
+    Optional:
+    - wallet_address: If provided, can be used for direct payments. If None, MUST use escrow.
     """
 
     agent_id: str
-    wallet_address: str
     price: str
-    token_address: str  # e.g. "devUSDC.e" or generic address
+    wallet_address: Optional[str] = None
+    token_address: str = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0" # Default to USDC.e
     
     agent_token: Optional[str] = None
 
+    # Tool-specific paywalls (e.g., {"say_hello": "0.1"})
+    tool_prices: Dict[str, str] = field(default_factory=dict)
+
+    # ERC-8004 / On-chain identity
+    on_chain_id: int = 0  # Default ID
+
     # x402 / EVM Network settings
-    chain_caip: str = "eip155:84531"   # Cronos Testnet CAIP
+    chain_caip: str = "eip155:338"   # Cronos Testnet CAIP
     facilitator_url: str = "https://facilitator.cronoslabs.org/v2/x402"
     
     # Local persistence
@@ -50,12 +56,9 @@ class AgentConfig:
     def validate(self) -> None:
         if not self.agent_id:
             raise ValueError("agent_id is required")
-        if not self.wallet_address:
-            raise ValueError("wallet_address is required")
         if not self.price:
             raise ValueError("price is required")
-        if not self.token_address:
-            raise ValueError("token_address is required")
+        # wallet_address is now optional
         
         if self.ai_backend == "crypto_com":
             if not self.cdc_api_key:

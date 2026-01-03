@@ -42,7 +42,8 @@ class CryptoComBackend(AbstractAgentBackend):
             },
             plugins=self.config.backend_options.get("plugins", {
                 "instructions": "You are a sovereign agent powered by Orca SDK and Crypto.com."
-            })
+            }),
+            tools=self.config.backend_options.get("tools", [])
         )
         print("CDC Agent initialized successfully.")
 

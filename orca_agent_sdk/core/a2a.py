@@ -15,12 +15,15 @@ class AgentInfo:
     capabilities: list[str]
     name: str
 
+from .registries import RegistryManager
+
 class AgentRegistry:
     def __init__(self):
-        self._agents: Dict[str, AgentInfo] = {}
+        self._local_agents: Dict[str, AgentInfo] = {}
+        self.on_chain = RegistryManager()
 
     def register(self, agent_id: str, endpoint: str, capabilities: list[str] = None, name: str = ""):
-        self._agents[agent_id] = AgentInfo(
+        self._local_agents[agent_id] = AgentInfo(
             agent_id=agent_id,
             endpoint=endpoint,
             capabilities=capabilities or [],
@@ -28,7 +31,23 @@ class AgentRegistry:
         )
 
     def get_agent(self, agent_id: str) -> Optional[AgentInfo]:
-        return self._agents.get(agent_id)
+        # 1. Check local cache
+        if agent_id in self._local_agents:
+            return self._local_agents[agent_id]
+        
+        # 2. Check on-chain (assume numeric string is ID)
+        if agent_id.isdigit():
+            on_chain_id = int(agent_id)
+            endpoint = self.on_chain.get_agent_endpoint(on_chain_id)
+            if endpoint:
+                return AgentInfo(
+                    agent_id=agent_id,
+                    endpoint=endpoint,
+                    capabilities=[],
+                    name=f"On-Chain Agent {agent_id}"
+                )
+        
+        return None
 
 class A2AProtocol:
     def __init__(self, agent_id: str, registry: AgentRegistry):

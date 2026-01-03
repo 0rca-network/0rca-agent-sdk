@@ -5,11 +5,14 @@ def main():
     # 1. Setup Configuration for Cronos Testnet
     config = AgentConfig(
         agent_id="cronos-gemini-agent",
-        # This is where your agent receives payments (USDC/CRO)
-        wallet_address="0x975C5b75Ff1141E10c4f28454849894F766B945E", 
         price="1.0",
-        token_address="0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0",
         
+        # We rely on SDK constants for Escrow & Tokens now!
+        # wallet_address is optional (defaults to none, forcing escrow usage)
+        
+        # On-Chain Identity (ERC-8004)
+        on_chain_id=0,
+
         # Cronos Testnet CAIP
         chain_caip="eip155:338",
         
