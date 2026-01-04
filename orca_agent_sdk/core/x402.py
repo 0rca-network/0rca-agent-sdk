@@ -19,6 +19,11 @@ class X402:
         Decodes a base64 payment token into a dictionary.
         """
         try:
+            # Fix padding
+            padding = len(token) % 4
+            if padding:
+                token += '=' * (4 - padding)
+            
             json_str = base64.b64decode(token).decode("utf-8")
             return json.loads(json_str)
         except Exception as e:

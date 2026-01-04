@@ -56,13 +56,18 @@ class PaymentManager:
             address = payment_obj.get("address")
             
             if not challenge or not signature or not address:
+                # Basic check failed
                 return False
                 
+            # If challenge is base64 (which it often is in x402), we might need to verify the decoded content or the string itself.
+            # For this simple local verification, we assume the challenge string itself was signed.
+            
             message = encode_defunct(text=challenge)
             recovered_addr = Account.recover_message(message, signature=signature)
             
             return recovered_addr.lower() == address.lower()
-        except Exception:
+        except Exception as e:
+            print(f"Signature Verification Error: {e}")
             return False
 
     def check_tool_payment(self, tool_name: str, signed_b64: Optional[str]):

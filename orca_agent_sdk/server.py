@@ -219,7 +219,7 @@ class AgentServer:
                                 timeout=10
                             )
                             verify_resp.raise_for_status()
-                            if not verify_resp.json().get("isValid"): # Note: API returns 'isValid' not 'valid'
+                            if not verify_resp.json().get("isValid"):
                                 print(f"[DEBUG] Facilitator Rejection: {verify_resp.text}")
                                 return jsonify({"error": "Payment rejected by facilitator", "details": verify_resp.json()}), 402
                         except Exception as e:

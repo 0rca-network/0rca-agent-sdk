@@ -73,6 +73,16 @@ class CrewAIBackend(AbstractAgentBackend):
             allow_delegation=False
         )
 
+    def list_tools(self) -> List[str]:
+        """
+        List available tools from the initialized agent.
+        Since CrewAI wraps MCP tools, we try to inspect the agent's tools.
+        """
+        if not self.crew_agent or not self.crew_agent.tools:
+            return []
+        
+        return [tool.name for tool in self.crew_agent.tools]
+
     def handle_prompt(self, prompt: str) -> str:
         if not HAS_CREWAI:
             return "Error: crewai not installed."
