@@ -150,6 +150,11 @@ class AgentServer:
                 signed_b64 = request.headers.get("X-PAYMENT")
                 is_test_bypass = request.headers.get("X-TEST-BYPASS") == "true"
 
+                price_val = 0
+                try:
+                    price_val = float(self.config.price)
+                except: pass
+
                 if not signed_b64 and not is_test_bypass:
                     price_val = 0
                     try:

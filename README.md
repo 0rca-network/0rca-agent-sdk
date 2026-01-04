@@ -87,6 +87,18 @@ curl -X POST http://localhost:8000/a2a/send \
 - **`orca_agent_sdk/core`**: Heart of the SDK handling payments, identity, and persistence.
 - **`orca_agent_sdk/backends`**: Adapters for different AI frameworks.
 
+## 📂 Examples
+Check the `examples/` directory for full implementations:
+- **`examples/mcp-server-agent`**: Full-featured agent with MCP tools and paywalls.
+- **`examples/client_example.py`**: Client script demonstrating the payment flow.
+
+## 🧪 Development & Testing
+Run the test suite to ensure everything is working:
+
+```bash
+python -m unittest discover tests
+```
+
 ## 📄 License
 MIT License. See [LICENSE](LICENSE) for details.
 

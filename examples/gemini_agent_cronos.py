@@ -23,7 +23,7 @@ def main():
         backend_options={
             "provider": "GoogleGenAI",
             "model": "gemini-2.0-flash",
-            "provider_api_key": "AIzaSyBGPX7TYDBwXskzsmhWuAz2VP8MvuLhxiY",
+            "provider_api_key": "AIzaSyC3kaJXGa2RkK7pmlosHlVLeBqI5Z6vZYE",
             "temperature": 0.7,
             "plugins": {
                 "instructions": "You are a professional financial assistant on the Cronos network."

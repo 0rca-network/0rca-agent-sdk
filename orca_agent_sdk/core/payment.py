@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from ..config import AgentConfig
 from ..constants import AGENT_ESCROW
 from .x402 import X402
