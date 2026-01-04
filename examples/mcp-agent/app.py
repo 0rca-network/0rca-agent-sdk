@@ -252,28 +252,81 @@ def verify_payment(request: Request) -> bool:
         try:
             payment_obj = payment_manager.decode_payment(payment_token)
             
-            # Verify signature locally first
-            if not payment_manager.verify_signature(payment_obj):
+            # A. Legacy/Developer Local Check
+            if "payload" not in payment_obj:
+                if not payment_manager.verify_signature(payment_obj):
+                    verification_time = int((time.time() - start_time) * 1000)
+                    logger.log_payment_verification(False, payment_details, {
+                        "reason": "signature_verification_failed",
+                        "verification_time_ms": verification_time
+                    })
+                    return False
+                return True
+
+            # B. Professional/Facilitator Check (Production)
+            accepts = payment_manager.build_requirements()
+            req_item = accepts[0]
+            
+            # Construct Facilitator Payload
+            facilitator_payload = {
+                "x402Version": 1,
+                "paymentHeader": payment_token, 
+                "paymentRequirements": {
+                    "scheme": req_item.get("scheme", "exact"),
+                    "network": "cronos-testnet", # Standardize for testnet
+                    "payTo": req_item.get("beneficiary"),
+                    "asset": req_item.get("token"),
+                    "maxAmountRequired": str(req_item.get("maxAmountRequired")),
+                    "maxTimeoutSeconds": 300,
+                    "description": "Agent Market Data Access",
+                    "mimeType": "application/json"
+                }
+            }
+
+            headers = {
+                "Content-Type": "application/json",
+                "X402-Version": "1"
+            }
+            
+            facilitator_url = getattr(agent_config, 'facilitator_url', "https://facilitator.cronoslabs.org/v2/x402")
+            
+            try:
+                import requests as http_requests
+                # Verify
+                verify_resp = http_requests.post(
+                    f"{facilitator_url}/verify", 
+                    json=facilitator_payload, 
+                    headers=headers,
+                    timeout=10
+                )
+                if not verify_resp.json().get("isValid"):
+                    logger.logger.warning(f"Facilitator Rejection: {verify_resp.text}")
+                    return False
+                
+                # Settle (Background-ish)
+                try:
+                    http_requests.post(
+                        f"{facilitator_url}/settle", 
+                        json=facilitator_payload, 
+                        headers=headers,
+                        timeout=5
+                    )
+                except:
+                    pass
+                
                 verification_time = int((time.time() - start_time) * 1000)
-                logger.log_payment_verification(False, payment_details, {
-                    "reason": "signature_verification_failed",
-                    "verification_time_ms": verification_time
-                })
+                logger.log_payment_verification(True, payment_details)
+                return True
+
+            except Exception as e:
+                logger.logger.error(f"Facilitator communication error: {e}")
                 return False
-            
-            # For now, we'll use local signature verification
-            # In production, this would integrate with Cronos facilitator
-            verification_time = int((time.time() - start_time) * 1000)
-            payment_details["verification_time_ms"] = verification_time
-            logger.log_payment_verification(True, payment_details)
-            return True
-            
+                
         except Exception as decode_error:
             verification_time = int((time.time() - start_time) * 1000)
             logger.log_payment_verification(False, payment_details, {
                 "reason": "token_decode_error",
-                "error_message": str(decode_error),
-                "verification_time_ms": verification_time
+                "error_message": str(decode_error)
             })
             return False
             
@@ -326,76 +379,42 @@ async def chat_endpoint(
         # Extract symbols from query if specified (simple implementation)
         symbols = query.get("symbols", None)
         
+        # Fetch market data (try-except for resilience)
+        market_data = {}
         try:
-            # Fetch market data using the service
             market_data = market_data_service.get_market_summary(symbols)
+        except Exception as e:
+            logger.logger.warning(f"Resilient fallback: Manual market data fetch failed ({e}). Proceeding to CrewAI agent tools.")
+
+        # Process market data through CrewAI backend
+        try:
+            ai_response = crewai_backend.process_market_data(market_data, user_query)
+            processing_time = int((time.time() - start_time) * 1000)
             
-            # Process market data through CrewAI backend for natural language response
-            try:
-                ai_response = crewai_backend.process_market_data(market_data, user_query)
-                processing_time = int((time.time() - start_time) * 1000)
-                
-                logger.log_processing_performance("chat_request", processing_time, {
-                    "symbols_count": len(symbols) if symbols else 0,
-                    "market_data_count": len(market_data),
-                    "ai_processing": True
-                })
-                
-                return {
-                    "result": ai_response,
-                    "market_data": {
-                        symbol: {
-                            "symbol": data.symbol,
-                            "price": data.price,
-                            "timestamp": data.timestamp,
-                            "volume_24h": data.volume_24h,
-                            "price_change_24h": data.price_change_24h
-                        } for symbol, data in market_data.items()
-                    },
-                    "timestamp": int(time.time() * 1000),
-                    "processing_time_ms": processing_time
-                }
-                
-            except Exception as ai_error:
-                logger.log_error(ai_error, {
-                    "operation": "crewai_processing",
-                    "user_query": user_query,
-                    "symbols": symbols,
-                    "market_data_available": bool(market_data)
-                })
-                
-                # Fallback to raw market data if AI processing fails
-                processing_time = int((time.time() - start_time) * 1000)
-                
-                return {
-                    "result": crewai_backend.handle_processing_errors(ai_error, market_data),
-                    "market_data": {
-                        symbol: {
-                            "symbol": data.symbol,
-                            "price": data.price,
-                            "timestamp": data.timestamp,
-                            "volume_24h": data.volume_24h,
-                            "price_change_24h": data.price_change_24h
-                        } for symbol, data in market_data.items()
-                    },
-                    "timestamp": int(time.time() * 1000),
-                    "processing_time_ms": processing_time,
-                    "ai_processing_error": True
-                }
-            
-        except MCPAPIError as e:
-            logger.log_error(e, {
-                "operation": "market_data_fetch",
-                "user_query": user_query,
-                "symbols": symbols,
-                "api_status_code": e.status_code
+            logger.log_processing_performance("chat_request", processing_time, {
+                "symbols_count": len(symbols) if symbols else 0,
+                "market_data_count": len(market_data),
+                "ai_processing": True
             })
             
-            if e.status_code and e.status_code >= 500:
-                raise HTTPException(status_code=503, detail=f"Market data service unavailable: {e.message}")
-            else:
-                raise HTTPException(status_code=502, detail=f"Market data error: {e.message}")
-        
+            return {
+                "result": ai_response,
+                "market_data": {
+                    symbol: {
+                        "symbol": data.symbol,
+                        "price": data.price,
+                        "timestamp": data.timestamp,
+                        "volume_24h": data.volume_24h,
+                        "price_change_24h": data.price_change_24h
+                    } for symbol, data in market_data.items()
+                },
+                "timestamp": int(time.time() * 1000),
+                "processing_time_ms": processing_time
+            }
+        except Exception as ai_error:
+            logger.log_error(ai_error, {"operation": "ai_processing"})
+            raise HTTPException(status_code=500, detail=f"AI processing error: {str(ai_error)}")
+
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise

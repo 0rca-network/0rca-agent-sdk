@@ -9,7 +9,7 @@ from eth_account.messages import encode_defunct
 from web3 import Web3
 
 # --- CONFIGURATION ---
-AGENT_URL = "http://localhost:8000/agent"
+AGENT_URL = "http://localhost:8002/chat"
 PRIVATE_KEY = os.getenv("PRIVATE_KEY", "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80") # Default Anvil key
 
 # Chain Config
@@ -142,7 +142,7 @@ def main():
     if start_balance == 0:
         print("⚠️ WARNING: Balance is 0. Payment will fail on-chain, but server might accept for testing if strict mode is off.")
 
-    prompt = "Tell me a joke about blockchain."
+    prompt = "What’s the current price of Bitcoin?"
     print(f"\nRequesting: {prompt}")
     
     # 1. Initial Request (Expect 402)
@@ -154,11 +154,12 @@ def main():
 
     if resp.status_code == 402:
         print("Payment Required (402)")
-        challenge = resp.headers.get("PAYMENT-REQUIRED")
-        if not challenge:
-            print("Error: No challenge header found.")
+        auth_header = resp.headers.get("WWW-Authenticate")
+        if not auth_header or not auth_header.startswith("x402 "):
+            print("Error: No x402 challenge found in WWW-Authenticate header.")
             return
             
+        challenge = auth_header[5:] # Remove "x402 " prefix
         print(f"Challenge received: {challenge[:20]}...")
         
         # 2. Sign Payment
@@ -173,11 +174,11 @@ def main():
             return
         
         # 3. Retry with Payment
-        print("Retrying with X-PAYMENT header...")
+        print("Retrying with Authorization header...")
         resp2 = requests.post(
             AGENT_URL, 
-            json={"prompt": prompt},
-            headers={"X-PAYMENT": payment_token}
+            json={"message": prompt}, 
+            headers={"Authorization": f"x402 {payment_token}"}
         )
         
         if resp2.status_code == 200:

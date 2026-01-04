@@ -3,3 +3,6 @@ requests
 flask
 flask-cors
 x402
+crewai
+langchain-google-genai
+litellm

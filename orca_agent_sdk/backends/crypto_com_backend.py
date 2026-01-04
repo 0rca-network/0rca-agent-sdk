@@ -41,10 +41,12 @@ class CryptoComBackend(AbstractAgentBackend):
                 "timeout": 30
             },
             plugins=self.config.backend_options.get("plugins", {
-                "instructions": "You are a sovereign agent powered by Orca SDK and Crypto.com."
+                "crypto_com_exchange": {
+                    "instructions": "You are a professional financial assistant. Use exchange tools to fetch real-time data."
+                }
             })
         )
-        print("CDC Agent initialized successfully.")
+        print("CDC Agent initialized with plugins.")
 
     def handle_prompt(self, prompt: str) -> str:
         if self.agent:

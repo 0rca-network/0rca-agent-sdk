@@ -46,6 +46,7 @@ class MarketDataService:
         # Set default headers
         self.session.headers.update({
             "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
             "User-Agent": "mcp-market-data-agent/1.0"
         })
         
@@ -81,7 +82,7 @@ class MarketDataService:
             
             request_details = {
                 "endpoint": self.config.api_endpoint,
-                "method": "GET",
+                "method": "POST",
                 "symbols": symbols,
                 "params": params
             }
@@ -154,9 +155,9 @@ class MarketDataService:
             try:
                 logger.logger.debug(f"API request attempt {attempts_made}/{self.config.retry_attempts + 1}")
                 
-                response = self.session.get(
+                response = self.session.post(
                     self.config.api_endpoint,
-                    params=params,
+                    json=params,
                     timeout=self.config.timeout_seconds
                 )
                 
@@ -168,7 +169,7 @@ class MarketDataService:
                 # Log successful request
                 logger.log_api_request(True, {
                     "endpoint": self.config.api_endpoint,
-                    "method": "GET",
+                    "method": "POST",
                     "attempt": attempts_made
                 }, {
                     "status_code": response.status_code,
@@ -184,7 +185,7 @@ class MarketDataService:
                 
                 logger.log_api_request(False, {
                     "endpoint": self.config.api_endpoint,
-                    "method": "GET",
+                    "method": "POST",
                     "attempt": attempts_made
                 }, {
                     "response_time_ms": response_time
@@ -203,7 +204,7 @@ class MarketDataService:
                 response_time = int((time.time() - request_start) * 1000)
                 logger.log_api_request(False, {
                     "endpoint": self.config.api_endpoint,
-                    "method": "GET",
+                    "method": "POST",
                     "attempt": attempts_made
                 }, {
                     "response_time_ms": response_time
@@ -220,7 +221,7 @@ class MarketDataService:
                 
                 logger.log_api_request(False, {
                     "endpoint": self.config.api_endpoint,
-                    "method": "GET",
+                    "method": "POST",
                     "attempt": attempts_made
                 }, {
                     "response_time_ms": response_time
@@ -238,7 +239,7 @@ class MarketDataService:
                 
                 logger.log_api_request(False, {
                     "endpoint": self.config.api_endpoint,
-                    "method": "GET",
+                    "method": "POST",
                     "attempt": attempts_made
                 }, {
                     "response_time_ms": response_time

@@ -16,18 +16,21 @@ def main():
         # Cronos Testnet CAIP
         chain_caip="eip155:338",
         
-        # Use Crypto.com Backend with Gemini
-        ai_backend="crypto_com",
+        # Use CrewAI Backend with Gemini & MCP Tools
+        ai_backend="crewai",
         
-        # Gemini Configuration (Powered by CDC SDK)
+        # CrewAI Configuration
         backend_options={
-            "provider": "GoogleGenAI",
-            "model": "gemini-2.0-flash",
+            "model": "gemini/gemini-2.0-flash",
             "provider_api_key": "AIzaSyC3kaJXGa2RkK7pmlosHlVLeBqI5Z6vZYE",
-            "temperature": 0.7,
-            "plugins": {
-                "instructions": "You are a professional financial assistant on the Cronos network."
-            }
+            "role": "Financial Research Analyst",
+            "goal": "Fetch real-time crypto prices and provide market insights.",
+            "backstory": "You are a crypto expert with access to real-time tools via MCP.",
+            "mcps": [
+                # Example: Use a remote MCP for crypto data if available, 
+                # or a local one. For this demo, let's assume a generic crypto MCP.
+                "https://api.crypto-mcp.com/mcp" # Placeholder URL
+            ]
         }
     )
 

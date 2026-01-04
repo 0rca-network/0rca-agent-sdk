@@ -28,7 +28,7 @@ class MCPConfig:
 class PaymentConfig:
     """Configuration for x402 payment settings"""
     price: str = "0.1"  # Default price in tokens
-    token_address: str = "devUSDC.e"  # Cronos Testnet USDC
+    token_address: str = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0"  # Cronos Testnet USDC
     chain_caip: str = "eip155:338"  # Cronos Testnet
     facilitator_url: Optional[str] = None
     
@@ -46,8 +46,16 @@ class CrewAIConfig:
     temperature: float = 0.7
     max_tokens: int = 1000
     processing_timeout: int = 30
+    mcps: list = None
     
     def __post_init__(self):
+        if self.mcps is None:
+            self.mcps = [
+                {
+                    "type": "http",
+                    "url": "https://mcp.crypto.com/market-data/mcp",
+                }
+            ]
         # Load API key from environment if not provided
         if self.api_key is None:
             self.api_key = os.getenv("GEMINI_API_KEY")
@@ -122,7 +130,8 @@ class AgentConfiguration:
                 "model": self.crewai.model,
                 "api_key": self.crewai.api_key,
                 "temperature": self.crewai.temperature,
-                "max_tokens": self.crewai.max_tokens
+                "max_tokens": self.crewai.max_tokens,
+                "mcps": self.crewai.mcps
             }
         }
     
