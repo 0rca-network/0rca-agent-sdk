@@ -3,8 +3,8 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "0rca-agent-sdk"
-version = "1.0.0"
+name = "orca-network-sdk"
+version = "1.0.2"
 description = "Production-ready Python SDK for launching, monetizing, and orchestrating AI Agents via ERC-8004"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -34,6 +34,9 @@ agno = ["agno"]
 
 [project.scripts]
 orca-agent = "orca_agent_sdk.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["orca_agent_sdk*"]
 
 [project.urls]
 Homepage = "https://github.com/0rca-network/0rca-agent-sdk"
