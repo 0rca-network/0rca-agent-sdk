@@ -54,7 +54,18 @@ class A2AProtocol:
         self.agent_id = agent_id
         self.registry = registry
 
-    def create_message(self, to_agent_id: str, action: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def create_message(self, to_agent_id: str, action: str, payload: Dict[str, Any], task_id: Optional[str] = None, sub_task_id: Optional[str] = None, max_budget: Optional[float] = None) -> Dict[str, Any]:
+        msg_task = {
+            "action": action,
+            "payload": payload
+        }
+        if task_id:
+            msg_task["taskId"] = task_id
+        if sub_task_id:
+            msg_task["subTaskId"] = sub_task_id
+        if max_budget is not None:
+            msg_task["maxBudget"] = max_budget
+
         return {
             "header": {
                 "message_id": str(uuid.uuid4()),
@@ -62,18 +73,15 @@ class A2AProtocol:
                 "to": to_agent_id,
                 "timestamp": int(time.time() * 1000)
             },
-            "task": {
-                "action": action,
-                "payload": payload
-            }
+            "task": msg_task
         }
 
-    def send_message(self, to_agent_id: str, action: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def send_message(self, to_agent_id: str, action: str, payload: Dict[str, Any], task_id: Optional[str] = None, sub_task_id: Optional[str] = None, max_budget: Optional[float] = None) -> Dict[str, Any]:
         target = self.registry.get_agent(to_agent_id)
         if not target:
             raise ValueError(f"Agent {to_agent_id} not found in registry")
         
-        msg = self.create_message(to_agent_id, action, payload)
+        msg = self.create_message(to_agent_id, action, payload, task_id, sub_task_id, max_budget)
         
         try:
             url = f"{target.endpoint.rstrip('/')}/a2a/receive"

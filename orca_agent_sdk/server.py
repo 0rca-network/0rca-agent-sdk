@@ -11,6 +11,8 @@ from .core.payment import PaymentManager, ToolPaywallError
 from .core.persistence import init_db, log_request, update_request_success, update_request_failed
 from .core.a2a import AgentRegistry, A2AProtocol
 from .core.wallet import AgentWalletManager
+from .core.task_context import TaskContext, TaskStatus
+from .contracts.task_escrow import TaskEscrowClient
 
 # from .backends.base import AbstractAgentBackend
 # from .backends.crewai_backend import CrewAIBackend
@@ -50,6 +52,9 @@ class AgentServer:
             name=self.config.agent_id
         )
         self.a2a = A2AProtocol(self.config.agent_id, self.registry)
+
+        # 5. Initialize Task Escrow
+        self.escrow_client = TaskEscrowClient(self.config, self._agent_private_key)
 
         # 5. Initialize Backend
         self.backend = self._load_backend(handler)
@@ -93,8 +98,12 @@ class AgentServer:
             to_agent = data.get("to")
             action = data.get("action")
             payload = data.get("payload", {})
+            task_id = data.get("taskId")
+            sub_task_id = data.get("subTaskId")
+            max_budget = data.get("maxBudget")
+            
             try:
-                resp = self.a2a.send_message(to_agent, action, payload)
+                resp = self.a2a.send_message(to_agent, action, payload, task_id, sub_task_id, max_budget)
                 return jsonify(resp), 200
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
@@ -104,6 +113,13 @@ class AgentServer:
             try:
                 msg = self.a2a.receive_message(request.json)
                 task = msg["task"]
+                
+                # Validation
+                if "taskId" not in task:
+                     return jsonify({"error": "taskId required"}), 400
+                     
+                task_id = task.get("taskId")
+                # sub_task_id = task.get("subTaskId")
                 
                 # Execute logic via backend
                 if task["action"] == "chat":
@@ -145,6 +161,25 @@ class AgentServer:
                     return jsonify({"error": "Prompt required"}), 400
                 
                 req_id = log_request(self.config.db_path, prompt)
+
+                # 1b. Validate Task ID
+                task_id = data.get("taskId")
+                if not task_id:
+                     # For backward compatibility or testing, we might allow missing taskId if configured, 
+                     # but requirements say "All /agent ... requests must include taskId"
+                     # We will enforce it strictly or check if it's a legacy test.
+                     # Let's check headers too just in case
+                     task_id = request.headers.get("X-TASK-ID")
+                
+                if not task_id:
+                     return jsonify({"error": "taskId required"}), 400
+
+                # Initialize Task Context
+                task_ctx = TaskContext(
+                    task_id=task_id, 
+                    sub_task_id=data.get("subTaskId"),
+                    status=TaskStatus.RUNNING
+                )
 
                 # 2. Check Payment
                 signed_b64 = request.headers.get("X-PAYMENT")
@@ -255,7 +290,13 @@ class AgentServer:
                 try:
                     result = self.backend.handle_prompt(prompt)
                     update_request_success(self.config.db_path, req_id, result, signed_b64)
-                    return jsonify({"result": result}), 200
+                    
+                    # Optional: Auto-spend if budget provided? 
+                    # For now, we assume the Agent decides when to spend. 
+                    # But we can expose the escrow client to the backend if we refactor.
+                    # As per prompt "Agent must sign spend tx", we have self.escrow_client.spend(...) available.
+                    
+                    return jsonify({"result": result, "taskId": task_id}), 200
                 except ToolPaywallError as e:
                     # Tool specific paywall triggered!
                     accepts = self.payment.build_requirements(tool_name=e.tool_name)

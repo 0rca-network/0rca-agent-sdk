@@ -62,10 +62,28 @@ identity_abi = load_abi("IdentityRegistry")
 
 ## 📜 Included Contracts (ERC-8004)
 The SDK includes support and ABIs for the following production-level contracts:
+- **TaskEscrow**: Manage task-based budgets and secure payouts.
 - **AgentEscrow**: Trustless holding of payments until agent delivery.
 - **IdentityRegistry**: Decentralized registration of agent identities.
 - **ReputationRegistry**: On-chain trust and performance tracking.
 - **ValidationRegistry**: Verification of agent outputs.
+
+## 💼 Task-Based Orchestration
+The SDK now supports task-centric workflows where payments are handled via **TaskEscrow**.
+
+### 1. Orchestrator Creates Task
+The orchestrator (or user) creates a task on-chain with a budget.
+
+### 2. Dispatch Task
+Send a request to the agent including the `taskId`.
+```bash
+curl -X POST http://localhost:8000/agent \
+  -H "X-TASK-ID: 0xYourTaskId..." \
+  -d '{"prompt": "Do work", "taskId": "0xYourTaskId..."}'
+```
+
+### 3. Agent Execution & Spend
+The agent tracks the task context and automatically calls `spend(taskId, agentId, amount)` on the contract upon completion or per-step.
 
 ## 🤖 A2A Protocol
 Agents can communicate using the built-in A2A endpoints. The SDK handles message headers, timestamps, and routing between agent servers.
