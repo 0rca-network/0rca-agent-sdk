@@ -52,10 +52,16 @@ class AgentServer:
             endpoint=f"http://localhost:8000", # TODO: dynamic
             name=self.config.agent_id
         )
-        self.a2a = A2AProtocol(self.config.agent_id, self.registry)
+        # 5. Initialize Sovereign Vault
+        self.vault_client = getattr(handler, "vault_client", None)
+        if not self.vault_client and os.getenv("AGENT_VAULT"):
+            from .contracts.agent_vault import OrcaAgentVaultClient
+            self.vault_client = OrcaAgentVaultClient(self.config, os.getenv("AGENT_VAULT"), self._agent_private_key)
+        
+        # Identity address 
+        self.agent_wallet_address = self.config.wallet_address or "0x..." # Moved and updated
 
-        # 5. Initialize Task Escrow
-        self.escrow_client = TaskEscrowClient(self.config, self._agent_private_key)
+        self.a2a = A2AProtocol(self.config.agent_id, self.registry)
 
         # 5. Initialize Backend
         self.backend = self._load_backend(handler)
@@ -145,9 +151,19 @@ class AgentServer:
                     "on_chain_id": self.config.on_chain_id,
                     "reputation": rep,
                     "validation": val,
-                    "payout_wallet": self.config.wallet_address or "Escrow-Only",
+                    "earnings_vault": self.vault_client.vault_address if self.vault_client else "Not Deployed",
+                    "pending_balance_usdc": (self.vault_client.get_balance() / 10**6) if self.vault_client else 0.0,
                     "identity_wallet": self.agent_wallet_address
                 })
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+
+        @app.route("/withdraw", methods=["POST"])
+        def withdraw_earnings():
+            try:
+                if not self.vault_client: return jsonify({"error": "No vault configured"}), 400
+                tx_hash = self.vault_client.withdraw()
+                return jsonify({"status": "success", "txHash": tx_hash})
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
 
@@ -295,14 +311,13 @@ class AgentServer:
                     
                     # --- AUTOMATIC TASK ESCROW SPEND ---
                     print(f"[DEBUG] Check Spend: task_id={task_id}, config_price={self.config.price}", flush=True)
-                    if task_id and self.config.price and float(self.config.price) > 0:
+                    if task_id and self.config.price and float(self.config.price) > 0 and self.vault_client:
                         try:
                             # Convert price to integer units (assuming 6 decimals for USDC)
                             amount_units = int(float(self.config.price) * 10**6)
-                            print(f"[Server] Attempting task spend: {task_id}, agent: {self.config.on_chain_id}, amount: {amount_units}", flush=True)
-                            tx_hash = self.escrow_client.spend(
+                            print(f"[Server] Attempting task spend: {task_id}, amount: {amount_units}", flush=True)
+                            tx_hash = self.vault_client.spend(
                                 task_id=task_id,
-                                agent_id=self.config.on_chain_id,
                                 amount=amount_units
                             )
                             print(f"[Server] Task spend successful: {tx_hash}", flush=True)

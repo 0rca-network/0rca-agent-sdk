@@ -1,16 +1,18 @@
 from typing import Dict, Any, Optional, List
-import threading
 import json
 import os
-import requests
 
 from .config import AgentConfig
 from .server import AgentServer
+from .core.wallet import AgentWalletManager
+from .contracts.orca_hub import OrcaHubClient
+
+from .contracts.agent_vault import OrcaAgentVaultClient
+from .core.registries import RegistryManager
 
 class OrcaAgent:
     """
-    Simplified interface for creating and running an Orca Agent.
-    Abstracts configuration, server handling, and MCP tools.
+    Simplified interface for creating and running an Orca Agent using the Unified OrcaHub.
     """
 
     def __init__(
@@ -21,20 +23,9 @@ class OrcaAgent:
         tools: Optional[List[Dict[str, Any]]] = None,
         credits_file: Optional[str] = None,
         price: str = "0.0",
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        vault_address: Optional[str] = None
     ):
-        """
-        Initialize the Orca Agent.
-
-        Args:
-            name: Name of the agent.
-            model: Model to use (e.g., "gemini/gemini-2.0-flash").
-            system_prompt: Backstory/System prompt for the agent.
-            tools: List of MCP tool configurations (dicts).
-            credits_file: Path to a JSON file defining tool prices (optional).
-            price: Base price for accessing the agent (optional).
-            api_key: LLM Provider API Key (can also set via env var).
-        """
         self.name = name
         self.model = model
         self.tools = tools or []
@@ -62,23 +53,43 @@ class OrcaAgent:
             ai_backend="crewai",
             backend_options=self.backend_options,
             tool_prices=self.tool_prices,
-            token_address="0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0", # Default Cronos Testnet USDC
-            chain_caip="eip155:338", # Cronos Testnet
-            wallet_address="0xABC123..." # Placeholder, user should set env var or config
+            token_address="0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0", 
+            chain_caip="eip155:338", 
+            wallet_address="0xABC123..."
         )
         
-        # Override wallet from env if available for simple setup
+        # Override from env
         if os.getenv("CREATOR_WALLET_ADDRESS"):
             self.config.wallet_address = os.getenv("CREATOR_WALLET_ADDRESS")
 
+        # Load Identity Private Key
+        wallet_manager = AgentWalletManager(self.config.identity_wallet_path)
+        self._private_key = wallet_manager._private_key
+        
+        # Resolve Vault Address
+        self.vault_address = vault_address or os.getenv("AGENT_VAULT")
+        if not self.vault_address:
+            # Try looking up in registry
+            try:
+                registry = RegistryManager()
+                self.vault_address = registry.get_agent_vault(self.config.on_chain_id)
+            except: pass
+            
+        # Initialize Vault Client if address found
+        if self.vault_address:
+            self.vault_client = OrcaAgentVaultClient(self.config, self.vault_address, self._private_key)
+        else:
+            print(f"Warning: No vault address found for {self.name}. Payment features may be disabled.")
+            self.vault_client = None
+
+        self.server = None
+
     def _load_tool_prices(self) -> Dict[str, str]:
-        """Load tool prices from JSON file."""
         if not self.credits_file or not os.path.exists(self.credits_file):
             return {}
         try:
             with open(self.credits_file, 'r') as f:
                 data = json.load(f)
-                # Assuming simple format: {"tool_name": "price"} or {"tools": {"name": "price"}}
                 if "tools" in data:
                     return data["tools"]
                 return data
@@ -87,43 +98,26 @@ class OrcaAgent:
             return {}
 
     def run(self, port: int = 8000, host: str = "0.0.0.0"):
-        """Run the agent server."""
+        """Starts the Agent Server."""
         print(f"Starting {self.name} on {host}:{port}")
-        
-        # Initialize server
-        # Note: handler is implicitly managed by backend via handle_prompt
         self.server = AgentServer(self.config, handler=None)
-        
-        # Start server
         self.server.run(host=host, port=port)
 
     def claim_payment(self, task_id: str, amount: float) -> str:
-        """
-        Manually claim payment from TaskEscrow.
-        
-        Args:
-            task_id: Hex ID of the task
-            amount: Amount in USDC (e.g. 0.1)
-            
-        Returns:
-            Transaction hash
-        """
-        if not self.server or not self.server.escrow_client:
-            raise RuntimeError("Agent server not running or escrow client not initialized")
-            
-        # Convert amount to units (6 decimals)
+        """Manually trigger a spend() call on the sovereign vault."""
+        if not self.vault_client: raise ValueError("Vault not configured")
         amount_units = int(amount * 10**6)
-        
-        return self.server.escrow_client.spend(
-            task_id=task_id,
-            agent_id=self.config.on_chain_id,
-            amount=amount_units
-        )
+        print(f"[{self.name}] Claiming {amount} USDC from vault for task {task_id}...")
+        return self.vault_client.spend(task_id, amount_units)
 
-    # Helper to list tools
-    def list_tools(self):
-        """List available tools from configured MCPs."""
-        # This requires the backend to be initialized, which happens in Server
-        # For simplicity, we might need to peek into backend initialization or 
-        # instantiate a temporary backend.
-        pass
+    def withdraw_earnings(self) -> str:
+        """Withdraws all earnings from the sovereign vault."""
+        if not self.vault_client: raise ValueError("Vault not configured")
+        print(f"[{self.name}] Withdrawing all earnings from vault...")
+        return self.vault_client.withdraw()
+
+    def get_earnings_balance(self) -> float:
+        """Returns the current balance in the vault (in USDC)."""
+        if not self.vault_client: return 0.0
+        balance_units = self.vault_client.get_balance()
+        return balance_units / 10**6

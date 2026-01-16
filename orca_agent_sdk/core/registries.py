@@ -26,9 +26,19 @@ class RegistryManager:
         if "IdentityRegistry" not in self.abis: return ""
         contract = self.w3.eth.contract(address=IDENTITY_REGISTRY, abi=self.abis["IdentityRegistry"])
         try:
-            # Metadata is stored as bytes
             val = contract.functions.getMetadata(agent_id, "endpoint").call()
             return val.decode("utf-8") if val else ""
+        except:
+            return ""
+
+    def get_agent_vault(self, agent_id: int) -> str:
+        if "IdentityRegistry" not in self.abis: return ""
+        contract = self.w3.eth.contract(address=IDENTITY_REGISTRY, abi=self.abis["IdentityRegistry"])
+        try:
+            val = contract.functions.getMetadata(agent_id, "vault").call()
+            if not val: return ""
+            # If stored as raw address string in bytes
+            return val.decode("utf-8")
         except:
             return ""
 

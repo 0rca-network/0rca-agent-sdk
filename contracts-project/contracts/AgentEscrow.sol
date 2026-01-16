@@ -1,103 +1,75 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-interface IERC20WithAuth is IERC20 {
-    function transferWithAuthorization(
-        address from,
-        address to,
-        uint256 value,
-        uint256 validAfter,
-        uint256 validBefore,
-        bytes32 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
+interface IIdentityRegistry {
+    function getAgentOwner(uint256 agentId) external view returns (address);
 }
 
-interface IERC8004 is IERC721 {
-    // ERC-8004 is built on 721, so ownerOf is standard.
-    // We just need the interface to be clear.
-}
+/**
+ * @title AgentEscrow
+ * @dev Centralized vault for all agent earnings (x402 + TaskEscrow).
+ */
+contract AgentEscrow is Ownable, ReentrancyGuard {
+    IERC20 public immutable paymentToken;
+    IIdentityRegistry public immutable identityRegistry;
 
-contract AgentEscrow {
-    IERC20WithAuth public immutable usdc;
-    IERC8004 public immutable registry;
-    address public immutable facilitator;
+    // agentId => earnings
+    mapping(uint256 => uint256) public agentEarnings;
+    
+    // Whitelist for contracts allowed to deposit (TaskEscrow, Facilitator)
+    mapping(address => bool) public authorizedPayers;
 
-    mapping(uint256 => uint256) public balances; // agentId => amount
+    event EarningsDeposited(uint256 indexed agentId, address indexed payer, uint256 amount);
+    event EarningsWithdrawn(uint256 indexed agentId, address indexed owner, uint256 amount);
+    event PayerAuthorized(address indexed payer, bool status);
 
-    event AgentCredited(uint256 indexed agentId, uint256 amount);
-    event AgentWithdrawn(uint256 indexed agentId, address indexed to, uint256 amount);
-
-    constructor(address _usdc, address _registry, address _facilitator) {
-        require(_usdc != address(0), "Invalid USDC");
-        require(_registry != address(0), "Invalid Registry");
-        require(_facilitator != address(0), "Invalid Facilitator");
-        
-        usdc = IERC20WithAuth(_usdc);
-        registry = IERC8004(_registry);
-        facilitator = _facilitator;
+    constructor(address _paymentToken, address _identityRegistry) Ownable(msg.sender) {
+        paymentToken = IERC20(_paymentToken);
+        identityRegistry = IIdentityRegistry(_identityRegistry);
     }
 
-    modifier onlyFacilitator() {
-        require(msg.sender == facilitator, "Only facilitator");
+    modifier onlyAuthorized() {
+        require(authorizedPayers[msg.sender] || msg.sender == owner(), "Not authorized to deposit");
         _;
     }
 
-    /**
-     * @notice Credits an agent's balance by pulling tokens from a user via EIP-3009.
-     * @dev Called ONLY by the off-chain facilitator after verifying the signature.
-     */
-    function creditAgent(
-        uint256 agentId,
-        uint256 amount,
-        address from,
-        uint256 validAfter,
-        uint256 validBefore,
-        bytes32 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external onlyFacilitator {
-        // 1. Pull tokens from user to this contract
-        usdc.transferWithAuthorization(
-            from,
-            address(this),
-            amount,
-            validAfter,
-            validBefore,
-            nonce,
-            v,
-            r,
-            s
-        );
-
-        // 2. Update internal accounting
-        balances[agentId] += amount;
-
-        emit AgentCredited(agentId, amount);
+    function setAuthorizedPayer(address _payer, bool _status) external onlyOwner {
+        authorizedPayers[_payer] = _status;
+        emit PayerAuthorized(_payer, _status);
     }
 
     /**
-     * @notice Withdraws the full balance of an agent to its owner.
-     * @param agentId The ID of the agent to withdraw for.
+     * @dev Called by TaskEscrow or Facilitator to credit an agent.
+     * The USDC must be transferred to this contract before calling this.
      */
-    function withdraw(uint256 agentId) external {
-        address owner = registry.ownerOf(agentId);
-        require(msg.sender == owner, "Not agent owner");
-
-        uint256 amount = balances[agentId];
-        require(amount > 0, "No funds");
-
-        balances[agentId] = 0;
+    function deposit(uint256 agentId, uint256 amount) external nonReentrant onlyAuthorized {
+        require(amount > 0, "Amount must be > 0");
         
-        // Transfer USDC to the owner
-        require(usdc.transfer(owner, amount), "Transfer failed");
+        // This contract must have received the tokens already (via transfer/transferFrom)
+        // or we can use transferFrom here if approved. 
+        // For simplicity with TaskEscrow, TaskEscrow will transfer USDC and then call this.
+        
+        agentEarnings[agentId] += amount;
+        emit EarningsDeposited(agentId, msg.sender, amount);
+    }
 
-        emit AgentWithdrawn(agentId, owner, amount);
+    /**
+     * @dev Allows the agent's owner to withdraw their accumulated earnings.
+     */
+    function withdraw(uint256 agentId) external nonReentrant {
+        address owner = identityRegistry.getAgentOwner(agentId);
+        require(msg.sender == owner, "Only the agent owner can withdraw");
+        
+        uint256 amount = agentEarnings[agentId];
+        require(amount > 0, "No earnings to withdraw");
+
+        agentEarnings[agentId] = 0;
+        require(paymentToken.transfer(owner, amount), "Transfer failed");
+
+        emit EarningsWithdrawn(agentId, owner, amount);
     }
 }
