@@ -13,6 +13,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 contract OrcaAgentVault is Ownable, ReentrancyGuard {
     IERC20 public immutable paymentToken;
     uint256 public immutable agentId;
+    address public agent;
 
     struct Task {
         uint256 budget;
@@ -30,9 +31,15 @@ contract OrcaAgentVault is Ownable, ReentrancyGuard {
     event TaskClosed(bytes32 indexed taskId, uint256 refundAmount);
     event EarningsWithdrawn(address indexed owner, uint256 amount);
 
-    constructor(address _paymentToken, uint256 _agentId, address _owner) Ownable(_owner) {
+    constructor(address _paymentToken, uint256 _agentId, address _owner, address _agent) Ownable(_owner) {
         paymentToken = IERC20(_paymentToken);
         agentId = _agentId;
+        agent = _agent;
+    }
+
+    modifier onlyAuthorized() {
+        require(msg.sender == owner() || msg.sender == agent, "Not owner or agent");
+        _;
     }
 
     /**
@@ -54,10 +61,10 @@ contract OrcaAgentVault is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Agent (as Owner) claims budget from a task.
+     * @dev Agent claims budget from a task.
      * Moves funds from task bucket to agent balance.
      */
-    function spend(bytes32 taskId, uint256 amount) external onlyOwner nonReentrant {
+    function spend(bytes32 taskId, uint256 amount) external onlyAuthorized nonReentrant {
         Task storage task = tasks[taskId];
         require(task.exists && !task.closed, "Invalid task");
         require(task.remaining >= amount, "Insufficient budget");

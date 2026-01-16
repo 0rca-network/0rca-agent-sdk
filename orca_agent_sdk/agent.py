@@ -5,14 +5,13 @@ import os
 from .config import AgentConfig
 from .server import AgentServer
 from .core.wallet import AgentWalletManager
-from .contracts.orca_hub import OrcaHubClient
 
 from .contracts.agent_vault import OrcaAgentVaultClient
 from .core.registries import RegistryManager
 
 class OrcaAgent:
     """
-    Simplified interface for creating and running an Orca Agent using the Unified OrcaHub.
+    Simplified interface for creating and running an Orca Agent using the Sovereign Vault.
     """
 
     def __init__(
@@ -31,7 +30,10 @@ class OrcaAgent:
         self.tools = tools or []
         self.credits_file = credits_file
         self.base_price = price
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+        if not self.api_key:
+            print("Warning: No API key found. Please set GEMINI_API_KEY or GOOGLE_API_KEY environment variable.")
 
         # Load tool prices if credits file provided
         self.tool_prices = self._load_tool_prices()
@@ -100,7 +102,7 @@ class OrcaAgent:
     def run(self, port: int = 8000, host: str = "0.0.0.0"):
         """Starts the Agent Server."""
         print(f"Starting {self.name} on {host}:{port}")
-        self.server = AgentServer(self.config, handler=None)
+        self.server = AgentServer(self.config, handler=self)
         self.server.run(host=host, port=port)
 
     def claim_payment(self, task_id: str, amount: float) -> str:
