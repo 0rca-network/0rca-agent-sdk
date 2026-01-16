@@ -1,8 +1,9 @@
 from typing import Optional, Dict, Any
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
+from web3.middleware import ExtraDataToPOAMiddleware
 from ..config import AgentConfig
 from ..constants import TASK_ESCROW
+from . import load_abi
 
 class TaskEscrowClient:
     def __init__(self, config: AgentConfig, private_key: str):
@@ -12,27 +13,24 @@ class TaskEscrowClient:
         # Initialize Web3
         rpc_url = getattr(config, "rpc_url", "https://evm-t3.cronos.org")
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
-        self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        self.w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
         
+        if not TASK_ESCROW:
+            raise ValueError("TASK_ESCROW address not configured. Please set TASK_ESCROW environment variable.")
+            
         self.contract_address = self.w3.to_checksum_address(TASK_ESCROW)
         
-        # Minimal ABI for spend
-        self.abi = [
-            {
-                "inputs": [
-                    {"internalType": "bytes32", "name": "taskId", "type": "bytes32"},
-                    {"internalType": "uint256", "name": "agentId", "type": "uint256"},
-                    {"internalType": "uint256", "name": "amount", "type": "uint256"}
-                ],
-                "name": "spend",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
-            }
-        ]
+        # Load Official ABI
+        self.abi = load_abi("TaskEscrow")
         
         self.contract = self.w3.eth.contract(address=self.contract_address, abi=self.abi)
         self.account = self.w3.eth.account.from_key(private_key)
+
+        # Chain ID from CAIP (e.g. eip155:338 -> 338)
+        try:
+            self.chain_id = int(config.chain_caip.split(":")[-1])
+        except (ValueError, AttributeError):
+            self.chain_id = 338 # Default to Cronos Testnet
 
     def spend(self, task_id: str, agent_id: int, amount: int) -> str:
         """
@@ -62,13 +60,14 @@ class TaskEscrowClient:
             agent_id,
             amount
         ).build_transaction({
-            'chainId': 338, # Cronos Testnet
+            'chainId': self.chain_id, 
             'gas': 200000,
             'gasPrice': self.w3.eth.gas_price,
             'nonce': nonce,
         })
         
         signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
+        print(f"[TaskEscrowClient] Sending 'spend' transaction for task {task_id}...", flush=True)
         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
         
         return self.w3.to_hex(tx_hash)

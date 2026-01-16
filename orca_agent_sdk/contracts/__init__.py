@@ -15,4 +15,6 @@ def load_abi(contract_name: str) -> dict:
         
     with open(abi_path, "r") as f:
         artifact = json.load(f)
+        if isinstance(artifact, list):
+            return artifact
         return artifact.get("abi", artifact)

@@ -97,6 +97,29 @@ class OrcaAgent:
         # Start server
         self.server.run(host=host, port=port)
 
+    def claim_payment(self, task_id: str, amount: float) -> str:
+        """
+        Manually claim payment from TaskEscrow.
+        
+        Args:
+            task_id: Hex ID of the task
+            amount: Amount in USDC (e.g. 0.1)
+            
+        Returns:
+            Transaction hash
+        """
+        if not self.server or not self.server.escrow_client:
+            raise RuntimeError("Agent server not running or escrow client not initialized")
+            
+        # Convert amount to units (6 decimals)
+        amount_units = int(amount * 10**6)
+        
+        return self.server.escrow_client.spend(
+            task_id=task_id,
+            agent_id=self.config.on_chain_id,
+            amount=amount_units
+        )
+
     # Helper to list tools
     def list_tools(self):
         """List available tools from configured MCPs."""

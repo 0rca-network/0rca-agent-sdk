@@ -25,6 +25,7 @@ class AgentServer:
     """
 
     def __init__(self, config: AgentConfig, handler: Callable[[str], str]):
+        print(">>> AgentServer DEBUG-1 Initializing")
         self.config = config
         self.config.validate()
         
@@ -153,6 +154,7 @@ class AgentServer:
         # --- Public Agent Endpoint (x402 Gated) ---
         @app.route("/agent", methods=["POST"])
         def handle_agent_request():
+            print("!!! handle_agent_request CALLED !!!", flush=True)
             try:
                 # 1. Parse & Log
                 data = request.json or {}
@@ -288,7 +290,29 @@ class AgentServer:
 
                 # 4. Run Backend
                 try:
+                    # Execute Backend
                     result = self.backend.handle_prompt(prompt)
+                    
+                    # --- AUTOMATIC TASK ESCROW SPEND ---
+                    print(f"[DEBUG] Check Spend: task_id={task_id}, config_price={self.config.price}", flush=True)
+                    if task_id and self.config.price and float(self.config.price) > 0:
+                        try:
+                            # Convert price to integer units (assuming 6 decimals for USDC)
+                            amount_units = int(float(self.config.price) * 10**6)
+                            print(f"[Server] Attempting task spend: {task_id}, agent: {self.config.on_chain_id}, amount: {amount_units}", flush=True)
+                            tx_hash = self.escrow_client.spend(
+                                task_id=task_id,
+                                agent_id=self.config.on_chain_id,
+                                amount=amount_units
+                            )
+                            print(f"[Server] Task spend successful: {tx_hash}", flush=True)
+                        except Exception as spend_err:
+                            print(f"[Server] Task spend failed: {spend_err}", flush=True)
+                            # We don't fail the whole request if spend fails, 
+                            # as the agent already did the work. 
+                            # In production, we'd log this for retry.
+                    
+                    resp = jsonify({"result": result, "taskId": task_id})
                     update_request_success(self.config.db_path, req_id, result, signed_b64)
                     
                     # Optional: Auto-spend if budget provided? 
@@ -310,8 +334,14 @@ class AgentServer:
                     resp.headers["Access-Control-Expose-Headers"] = "PAYMENT-REQUIRED"
                     return resp
                 except Exception as e:
+                    import traceback
+                    err_trace = traceback.format_exc()
                     update_request_failed(self.config.db_path, req_id, str(e))
-                    return jsonify({"error": "Backend execution failed"}), 500
+                    return jsonify({
+                        "error": "Backend execution failed",
+                        "details": str(e),
+                        "trace": err_trace
+                    }), 500
 
             except Exception as e:
                 return jsonify({"error": "Internal error", "details": str(e)}), 500
