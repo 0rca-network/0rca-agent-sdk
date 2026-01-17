@@ -32,6 +32,10 @@ class AgentConfig:
     chain_caip: str = "eip155:338"   # Cronos Testnet CAIP
     facilitator_url: str = "https://facilitator.cronoslabs.org/v2/x402"
     
+    # CroGas / Gas Station settings
+    crogas_url: Optional[str] = "http://144.126.253.20"
+    usdc_address: str = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1" # Cronos Testnet USDC
+    
     # Local persistence
     db_path: str = "agent_local.db"
     identity_wallet_path: str = "agent_identity.json"

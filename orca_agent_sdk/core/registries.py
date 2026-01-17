@@ -12,13 +12,13 @@ class RegistryManager:
         self.abis = self._load_abis()
 
     def _load_abis(self):
-        base_path = os.path.join(os.path.dirname(__file__), "..", "contracts", "abis")
+        from ..contracts import load_abi
         abis = {}
         for name in ["IdentityRegistry", "ReputationRegistry", "ValidationRegistry"]:
-            path = os.path.join(base_path, f"{name}.json")
-            if os.path.exists(path):
-                with open(path, "r") as f:
-                    abis[name] = json.load(f)
+            try:
+                abis[name] = load_abi(name)
+            except:
+                pass
         return abis
 
     # --- IDENTITY ---

@@ -63,6 +63,9 @@ class OrcaAgent:
         # Override from env
         if os.getenv("CREATOR_WALLET_ADDRESS"):
             self.config.wallet_address = os.getenv("CREATOR_WALLET_ADDRESS")
+        
+        if os.getenv("CROGAS_URL"):
+            self.config.crogas_url = os.getenv("CROGAS_URL")
 
         # Load Identity Private Key
         wallet_manager = AgentWalletManager(self.config.identity_wallet_path)

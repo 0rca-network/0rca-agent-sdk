@@ -41,6 +41,25 @@ class OrcaAgentVaultClient:
 
         nonce = self.w3.eth.get_transaction_count(self.account.address)
         
+        # Check if we should use CroGas for gasless relay
+        if hasattr(self.config, "crogas_url") and self.config.crogas_url:
+            from .crogas import CroGasClient
+            
+            calldata = self.contract.encode_abi("spend", [task_id_bytes, amount])
+            crogas = CroGasClient(
+                api_url=self.config.crogas_url,
+                private_key=self.private_key,
+                chain_id=self.chain_id,
+                usdc_address=getattr(self.config, "usdc_address", "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1")
+            )
+            
+            try:
+                print(f"[VaultClient] Attempting gasless 'spend' via CroGas...", flush=True)
+                result = crogas.execute(to=self.vault_address, data=calldata)
+                return result.get("txHash")
+            except Exception as e:
+                print(f"[VaultClient] CroGas relay failed, falling back to direct: {e}", flush=True)
+        
         tx = self.contract.functions.spend(
             task_id_bytes,
             amount
@@ -52,7 +71,7 @@ class OrcaAgentVaultClient:
         })
         
         signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)
-        print(f"[VaultClient] Sending 'spend' to vault {self.vault_address} for task {task_id}...", flush=True)
+        print(f"[VaultClient] Sending direct 'spend' to vault {self.vault_address} for task {task_id}...", flush=True)
         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
         
         return self.w3.to_hex(tx_hash)
