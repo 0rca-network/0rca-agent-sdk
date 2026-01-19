@@ -5,7 +5,7 @@ async function main() {
     console.log("Deploying production-ready contracts with:", deployer.address);
 
     // Cronos Testnet USDC.e
-    const USDC_E = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0";
+    const USDC_E = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1";
 
     // 1. Deploy IdentityRegistry
     console.log("Deploying IdentityRegistry...");

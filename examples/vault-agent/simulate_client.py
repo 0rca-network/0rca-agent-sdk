@@ -11,7 +11,7 @@ from web3.middleware import ExtraDataToPOAMiddleware
 
 AGENT_URL = "http://localhost:8000/agent"
 RPC_URL = "https://evm-t3.cronos.org"
-USDC_TOKEN = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0"
+USDC_TOKEN = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1"
 
 def simulate():
     vault_address = os.getenv("AGENT_VAULT")

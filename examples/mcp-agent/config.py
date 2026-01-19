@@ -28,7 +28,7 @@ class MCPConfig:
 class PaymentConfig:
     """Configuration for x402 payment settings"""
     price: str = "0.1"  # Default price in tokens
-    token_address: str = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0"  # Cronos Testnet USDC
+    token_address: str = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1"  # Cronos Testnet USDC
     chain_caip: str = "eip155:338"  # Cronos Testnet
     facilitator_url: Optional[str] = None
     

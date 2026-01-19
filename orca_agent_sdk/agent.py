@@ -6,6 +6,7 @@ from .config import AgentConfig
 from .server import AgentServer
 from .core.wallet import AgentWalletManager
 
+from .contracts.task_escrow import TaskEscrowClient
 from .contracts.agent_vault import OrcaAgentVaultClient
 from .core.registries import RegistryManager
 
@@ -55,7 +56,7 @@ class OrcaAgent:
             ai_backend="crewai",
             backend_options=self.backend_options,
             tool_prices=self.tool_prices,
-            token_address="0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0", 
+            token_address="0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1", 
             chain_caip="eip155:338", 
             wallet_address="0xABC123..."
         )
@@ -82,7 +83,16 @@ class OrcaAgent:
             
         # Initialize Vault Client if address found
         if self.vault_address:
-            self.vault_client = OrcaAgentVaultClient(self.config, self.vault_address, self._private_key)
+            # Try TaskEscrow first as it is the new standard
+            try:
+                self.vault_client = TaskEscrowClient(self.config, self._private_key)
+                # Overwrite contract address if passed specifically
+                if vault_address:
+                    self.vault_client.vault_address = self.vault_client.w3.to_checksum_address(vault_address)
+                    self.vault_client.contract = self.vault_client.w3.eth.contract(address=self.vault_client.vault_address, abi=self.vault_client.abi)
+            except Exception as e:
+                print(f"Switching to legacy Vault Client: {e}")
+                self.vault_client = OrcaAgentVaultClient(self.config, self.vault_address, self._private_key)
         else:
             print(f"Warning: No vault address found for {self.name}. Payment features may be disabled.")
             self.vault_client = None

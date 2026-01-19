@@ -18,12 +18,12 @@ class TaskEscrowClient:
         if not TASK_ESCROW:
             raise ValueError("TASK_ESCROW address not configured. Please set TASK_ESCROW environment variable.")
             
-        self.contract_address = self.w3.to_checksum_address(TASK_ESCROW)
+        self.vault_address = self.w3.to_checksum_address(TASK_ESCROW)
         
         # Load Official ABI
         self.abi = load_abi("TaskEscrow")
         
-        self.contract = self.w3.eth.contract(address=self.contract_address, abi=self.abi)
+        self.contract = self.w3.eth.contract(address=self.vault_address, abi=self.abi)
         self.account = self.w3.eth.account.from_key(private_key)
 
         # Chain ID from CAIP (e.g. eip155:338 -> 338)

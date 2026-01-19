@@ -9,7 +9,7 @@ import base64
 # --- CONFIGURATION ---
 AGENT_URL = "http://localhost:8000/agent"
 RPC_URL = "https://evm-t3.cronos.org"
-USDC_E_ADDRESS = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0"
+USDC_E_ADDRESS = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1"
 MNEMONIC = "dish public milk ramp capable venue poverty grain useless december hedgehog shuffle"
 
 w3 = Web3(Web3.HTTPProvider(RPC_URL))

@@ -7,7 +7,7 @@ from web3 import Web3
 
 AGENT_URL = "http://localhost:8000"
 RPC_URL = "https://evm-t3.cronos.org"
-USDC_ADDRESS = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0"
+USDC_ADDRESS = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1"
 ESCROW_ADDRESS = "0x482C45A341e6BE4D171136daba45E87ACaAc22a0"
 
 # Using the agent wallet as mock orchestrator for the test

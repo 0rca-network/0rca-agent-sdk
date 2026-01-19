@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IIdentityRegistry {
-    function getAgentOwner(uint256 agentId) external view returns (address);
+    function ownerOf(uint256 agentId) external view returns (address);
 }
 
 interface IAgentEscrow {
@@ -82,7 +82,7 @@ contract TaskEscrow is Ownable, ReentrancyGuard {
         require(task.exists && task.status == TaskStatus.Open, "Invalid task");
         require(task.remaining >= amount, "Insufficient budget");
         
-        address agentOwner = identityRegistry.getAgentOwner(agentId);
+        address agentOwner = identityRegistry.ownerOf(agentId);
         require(msg.sender == agentOwner, "Only the agent owner can spend");
 
         task.remaining -= amount;

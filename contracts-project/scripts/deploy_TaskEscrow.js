@@ -9,7 +9,7 @@ async function main() {
 
     if (network.name === "cronosTestnet") {
         identityRegistryAddress = "0x58e67dEEEcde20f10eD90B5191f08f39e81B6658";
-        usdcAddress = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0";
+        usdcAddress = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1";
         // Use a default treasury or the deployer
         const [deployer] = await ethers.getSigners();
         treasuryAddress = deployer.address;

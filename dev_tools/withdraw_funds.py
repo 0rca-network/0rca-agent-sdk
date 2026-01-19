@@ -5,7 +5,7 @@ from eth_account import Account
 # --- CONFIG ---
 RPC_URL = "https://evm-t3.cronos.org"
 ESCROW_ADDRESS = "0x86768D20Ad92d727c987fddD10d08aFA25B85E78"
-USDC_E_ADDRESS = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0"
+USDC_E_ADDRESS = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1"
 AGENT_ID = 0
 # Agent Identity Private Key (from agent_identity.json)
 AGENT_PRIVATE_KEY = "63918bb7d149f6cc03b40aeff33aff6da1736a1fe1f479f0da95e694698f69dc"

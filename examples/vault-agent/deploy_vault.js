@@ -6,7 +6,7 @@ async function main() {
     console.log("Deploying OrcaAgentVault...");
 
     // 1. Setup Constants
-    const USDC_TOKEN = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0";
+    const USDC_TOKEN = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1";
     const AGENT_ID = 0; // The ID you registered/will register in IdentityRegistry
     const OWNER = "0x975C5b75Ff1141E10c4f28454849894F766B945E"; // Your developer wallet
     const AGENT = "0x975C5b75Ff1141E10c4f28454849894F766B945E"; // Your agent wallet

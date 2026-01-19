@@ -107,7 +107,7 @@ class CroGasClient:
             
             # Dynamic token name detection (fallback to common names)
             token_name = "Test USDC"
-            if requested_asset.lower() == "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0".lower():
+            if requested_asset.lower() == "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1".lower():
                 token_name = "Bridged USDC (Stargate)"
             
             usdc_domain = {

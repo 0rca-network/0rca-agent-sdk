@@ -4,7 +4,7 @@ async function main() {
     const [deployer] = await hre.ethers.getSigners();
     console.log("Deploying Full ERC-8004 Suite with account:", deployer.address);
 
-    const USDC_E = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0";
+    const USDC_E = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1";
 
     // 1. IdentityRegistry
     console.log("\n1. Deploying IdentityRegistry...");

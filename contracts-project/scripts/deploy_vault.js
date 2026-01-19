@@ -6,7 +6,7 @@ async function main() {
     console.log("Deployer:", deployer.address);
 
     const IDENTITY_REGISTRY = "0x58e67dEEEcde20f10eD90B5191f08f39e81B6658";
-    const USDC_TOKEN = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0";
+    const USDC_TOKEN = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1";
     const PLATFORM_TREASURY = deployer.address;
 
     // 1. Deploy AgentEscrow (The Vault)

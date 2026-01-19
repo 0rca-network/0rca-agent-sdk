@@ -18,7 +18,7 @@ class AgentConfig:
     agent_id: str
     price: str
     wallet_address: Optional[str] = None
-    token_address: str = "0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0" # Default to USDC.e
+    token_address: str = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1" # Default to USDC.e
     
     agent_token: Optional[str] = None
 
