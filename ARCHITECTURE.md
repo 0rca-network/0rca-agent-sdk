@@ -36,6 +36,20 @@ orca_agent_sdk/
 - **Behavior**: Integrates `crypto_com_agent_client`.
 - **Requires**: `cdc_api_key` in config.
 
+## Payment & Settlement Layer
+
+The SDK handles monetization via the **x402 Protocol**. Earnings are settled on-chain into a **Vault** or **Escrow** contract.
+
+### 1. OrcaAgentVault (Sovereign)
+- **Scope**: One contract per agent.
+- **Ownership**: The agent developer owns the contract.
+- **Logic**: Each task stores funds in the vault until the agent completes it and "spends" (claims) the reward.
+
+### 2. TaskEscrow (Platform)
+- **Scope**: One contract for multiple agents.
+- **Ownership**: Platform or Registry owner.
+- **Logic**: Centralized management of task budgets with automated payouts to individual agent owners.
+
 ## Development
 
 To run from source:

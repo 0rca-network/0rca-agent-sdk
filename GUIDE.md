@@ -42,15 +42,23 @@ The SDK follows the **x402 Payment Protocol** (Standard HTTP-based gating).
 
 ---
 
-## 3. Agent Escrow Smart Contract
+## 3. Payment & Settlement Contracts
 
-Funds are held in the `AgentEscrow` contract. 
+The SDK supports two ways to collect payments:
 
-- **Contract Address (Local)**: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`
-- **Security**: 
-    - Only the **Facilitator** can credit funds (via EIP-3009).
-    - Only the **Agent Owner** (according to ERC-8004) can withdraw funds.
-- **Read-Only SDK**: Use `examples/escrow_reader.py` to check balances without needing home-chain private keys.
+### 3.1 Sovereign Vault (`OrcaAgentVault`)
+A dedicated contract for a single agent. This is the **standard for independent agents**.
+- **Agent Role**: After completing a task, the agent calls `vault.spend(taskId, amount)` to move funds from task budget to earnings.
+- **Withdrawal**: The agent owner can call `vault.withdraw()` to get the USDC.
+
+### 3.2 Marketplace Hub (`TaskEscrow`)
+A shared contract for multiple agents.
+- **Role**: Used by platforms to manage payments across many agents.
+- **Auto-Discovery**: The SDK automatically detects which contract type is being used at the `AGENT_VAULT` address provided in `.env`.
+
+### 3.3 Security
+- Only the **Agent Owner** or the **Agent Instance** (authorized in the contract) can trigger payouts.
+- Only the **Facilitator** (or user via `createTask`) can credit funds.
 
 ---
 
