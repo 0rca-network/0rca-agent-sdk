@@ -203,7 +203,11 @@ class AgentServer:
                         try:
                             amount_units = int(price_val * 10**6)
                             self._log(f"Attempting task spend: {task_id}, amount: {amount_units}")
-                            tx_hash = self.vault_client.spend(task_id, amount_units)
+                            # Use kwargs to be safe with different client signatures
+                            if hasattr(self.vault_client, "spend"):
+                                tx_hash = self.vault_client.spend(task_id=task_id, amount=amount_units)
+                            else:
+                                raise AttributeError("Vault client has no spend method")
                             self._log(f"Task spend successful: {tx_hash}")
                         except Exception as spend_err:
                             self._log(f"Task spend failed: {spend_err}")

@@ -32,11 +32,15 @@ class TaskEscrowClient:
         except (ValueError, AttributeError):
             self.chain_id = 338 # Default to Cronos Testnet
 
-    def spend(self, task_id: str, agent_id: int, amount: int) -> str:
+    def spend(self, task_id: str, amount: int, agent_id: int = None) -> str:
         """
         Calls spend() on TaskEscrow contract.
         Returns transaction hash.
         """
+        # Default to agent_id in config if not provided
+        if agent_id is None:
+            agent_id = self.config.on_chain_id
+
         # Convert task_id to bytes32 if string
         if isinstance(task_id, str):
             if task_id.startswith("0x"):
