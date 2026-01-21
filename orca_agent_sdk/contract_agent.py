@@ -37,33 +37,36 @@ class ContractAgent(OrcaAgent):
         # Internal state for loaded contracts
         self._loaded_contracts = {} # contract_id -> {chain, address, abi, contract_obj, w3}
         
+        # Pre-register our specialized tools
+        contract_tools = self._get_contract_tools()
+        
+        if tools is None:
+            tools = []
+        
+        # Combine provided tools with our contract tools
+        combined_tools = tools + contract_tools
+        
         # Initialize base OrcaAgent
         super().__init__(
             name=name,
             model=model,
             system_prompt=system_prompt,
-            tools=tools,
+            tools=combined_tools,
             credits_file=credits_file,
             price=price,
             api_key=api_key,
             vault_address=vault_address
         )
-        
-        # Register the contract tools
-        self._register_contract_tools()
-        
-        # Update backend options to include newly added native tools
-        if hasattr(self, "backend_options"):
-            self.backend_options["native_tools"] = self.native_tools
 
-    def _register_contract_tools(self):
-        """Registers the smart contract interaction tools."""
+    def _get_contract_tools(self):
+        """Returns the list of smart contract interaction tools."""
         
         @tool("load_contract")
-        def load_contract(chain: str, address: str) -> str:
+        def load_contract(chain: str, address: str, abi_json: Optional[str] = None) -> str:
             """
             Load an EVM smart contract ABI and expose callable functions.
             Supported chains: cronos, ethereum, base, arbitrum.
+            Optional: abi_json can be provided if automatic fetching fails.
             """
             chain = chain.lower()
             if chain not in self.rpc_urls:
@@ -76,10 +79,20 @@ class ContractAgent(OrcaAgent):
                 
                 address = w3.to_checksum_address(address)
                 
-                # Fetch ABI (Simplified version, ideally uses explorer API)
-                abi = self._fetch_abi(chain, address)
+                # Fetch or use provided ABI
+                if abi_json:
+                    try:
+                        abi = json.loads(abi_json)
+                    except:
+                        return json.dumps({"error": "Invalid ABI JSON provided"})
+                else:
+                    abi = self._fetch_abi(chain, address)
+                
                 if not abi:
-                    return json.dumps({"error": f"Could not fetch ABI for {address} on {chain}"})
+                    return json.dumps({
+                        "error": f"Could not fetch ABI for {address} on {chain}. Please provide ABI manually.",
+                        "manual_instruction": "You can provide the ABI as a JSON string in the 'abi_json' parameter."
+                    })
                 
                 contract_obj = w3.eth.contract(address=address, abi=abi)
                 
@@ -144,10 +157,13 @@ class ContractAgent(OrcaAgent):
                 func_abi = next(i for i in contract_info["abi"] if i.get("name") == functionName)
                 ordered_args = []
                 for input_def in func_abi.get("inputs", []):
-                    ordered_args.append(args.get(input_def["name"]))
+                    # Handle some common types
+                    val = args.get(input_def["name"])
+                    if input_def["type"].startswith("uint") or input_def["type"].startswith("int"):
+                        val = int(val) if val is not None else 0
+                    ordered_args.append(val)
                 
                 # Simulate
-                # Use public key of agent for simulation if available
                 from_address = self.config.wallet_address or "0x0000000000000000000000000000000000000000"
                 
                 call_data = {
@@ -172,7 +188,11 @@ class ContractAgent(OrcaAgent):
                     })
                     
             except Exception as e:
-                return json.dumps({"success": False, "error": str(e)})
+                return json.dumps({
+                    "success": False, 
+                    "error": str(e),
+                    "tip": "Check if arguments are correct and you have enough balance/allowance."
+                })
 
         @tool("execute_contract_call")
         def execute_contract_call(contractId: str, functionName: str, args: Dict[str, Any], value: str = "0") -> str:
@@ -213,7 +233,10 @@ class ContractAgent(OrcaAgent):
                 func_abi = next(i for i in contract_info["abi"] if i.get("name") == functionName)
                 ordered_args = []
                 for input_def in func_abi.get("inputs", []):
-                    ordered_args.append(args.get(input_def["name"]))
+                    val = args.get(input_def["name"])
+                    if input_def["type"].startswith("uint") or input_def["type"].startswith("int"):
+                        val = int(val) if val is not None else 0
+                    ordered_args.append(val)
                 
                 nonce = w3.eth.get_transaction_count(from_address)
                 chain_id = w3.eth.chain_id
@@ -256,76 +279,122 @@ class ContractAgent(OrcaAgent):
                 ordered_args = []
                 if args:
                     for input_def in func_abi.get("inputs", []):
-                        ordered_args.append(args.get(input_def["name"]))
+                        val = args.get(input_def["name"])
+                        if input_def["type"].startswith("uint") or input_def["type"].startswith("int"):
+                            val = int(val) if val is not None else 0
+                        ordered_args.append(val)
                 
                 result = contract.functions[functionName](*ordered_args).call()
                 return json.dumps({"result": str(result)}, indent=2)
             except Exception as e:
                 return json.dumps({"error": str(e)})
 
-        # Add tools to native_tools list so OrcaAgent (and backends) can find them
-        self.native_tools.extend([
-            load_contract, 
-            describe_function, 
-            simulate_contract_call, 
-            execute_contract_call, 
-            read_contract
-        ])
+        return [load_contract, describe_function, simulate_contract_call, execute_contract_call, read_contract]
 
     def _fetch_abi(self, chain: str, address: str) -> Optional[List[Dict[str, Any]]]:
         """Fetch ABI from explorer or cache."""
-        # Check cache first (Simple file-based cache)
+        # 0. Protocol-specific Built-in Fallbacks (Optimized for Moonlander)
+        BUILT_IN_ABIS = {
+            "0xE6F6351fb66f3a35313fEEFF9116698665FBEeC9".lower(): [
+                {"name": "openPosition", "type": "function", "stateMutability": "payable", "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "isLong", "type": "bool"}, {"name": "collateralUsd", "type": "uint256"}, {"name": "leverage", "type": "uint256"}]},
+                {"name": "closePosition", "type": "function", "stateMutability": "nonpayable", "inputs": [{"name": "positionId", "type": "uint256"}]},
+                {"name": "getPosition", "type": "function", "stateMutability": "view", "inputs": [{"name": "positionId", "type": "uint256"}], "outputs": [{"name": "pos", "type": "tuple", "components": [{"name": "owner", "type": "address"}, {"name": "marketId", "type": "uint256"}, {"name": "isLong", "type": "bool"}]}]},
+                {"name": "getPoolInfo", "type": "function", "stateMutability": "view", "inputs": [], "outputs": [{"name": "info", "type": "tuple", "components": [{"name": "totalAUM", "type": "uint256"}, {"name": "mlpPrice", "type": "uint256"}]}]}
+            ],
+            "0xb4c70008528227e0545Db5BA4836d1466727DF13".lower(): [
+                {"name": "name", "type": "function", "stateMutability": "view", "inputs": [], "outputs": [{"name": "", "type": "string"}]},
+                {"name": "symbol", "type": "function", "stateMutability": "view", "inputs": [], "outputs": [{"name": "", "type": "string"}]},
+                {"name": "balanceOf", "type": "function", "stateMutability": "view", "inputs": [{"name": "account", "type": "address"}], "outputs": [{"name": "", "type": "uint256"}]},
+                {"name": "transfer", "type": "function", "stateMutability": "nonpayable", "inputs": [{"name": "recipient", "type": "address"}, {"name": "amount", "type": "uint256"}], "outputs": [{"name": "", "type": "bool"}]},
+                {"name": "approve", "type": "function", "stateMutability": "nonpayable", "inputs": [{"name": "spender", "type": "address"}, {"name": "amount", "type": "uint256"}], "outputs": [{"name": "", "type": "bool"}]}
+            ]
+        }
+        
+        if address.lower() in BUILT_IN_ABIS:
+            print(f"[{self.name}] Using built-in ABI for protocol contract {address}")
+            return BUILT_IN_ABIS[address.lower()]
+
+        # 1. Check cache first
         cache_dir = os.path.join(os.getcwd(), ".abi_cache")
         os.makedirs(cache_dir, exist_ok=True)
         cache_file = os.path.join(cache_dir, f"{chain}_{address}.json")
         
         if os.path.exists(cache_file):
-            with open(cache_file, "r") as f:
-                return json.load(f)
+            try:
+                with open(cache_file, "r") as f:
+                    return json.load(f)
+            except: pass
         
-        # Explorer APIs
+        # 2. Explorer APIs
         api_urls = {
-            "cronos": "https://api.cronoscan.com/api",
+            "cronos": "https://explorer-api.cronos.org/mainnet/api/v2",
             "ethereum": "https://api.etherscan.io/api",
             "base": "https://api.basescan.org/api",
             "arbitrum": "https://api.arbiscan.io/api"
         }
         
-        api_key_env = {
-            "cronos": "CRONOSCAN_API_KEY",
-            "ethereum": "ETHERSCAN_API_KEY",
-            "base": "BASESCAN_API_KEY",
-            "arbitrum": "ARBISCAN_API_KEY"
-        }
-        
         api_url = api_urls.get(chain)
-        api_key = os.getenv(api_key_env.get(chain, ""))
-        
         if not api_url:
             return None
-        
-        params = {
-            "module": "contract",
-            "action": "getabi",
-            "address": address,
-            "apikey": api_key
-        }
-        
-        try:
-            response = requests.get(api_url, params=params)
-            data = response.json()
-            if data.get("status") == "1":
-                abi = json.loads(data.get("result"))
-                # Save to cache
+            
+        def fetch_raw(addr):
+            params = {
+                "module": "contract",
+                "action": "getabi",
+                "address": addr
+            }
+            # Check for API key in env or use provided default for Cronos
+            api_key_env = f"{chain.upper()}SCAN_API_KEY"
+            if os.getenv(api_key_env):
+                params["apikey"] = os.getenv(api_key_env)
+            elif chain == "cronos":
+                params["apikey"] = "okUm6990qPhrWWyuUHbKekc6biHBRJn8"
+            elif chain == "ethereum" and os.getenv("ETHERSCAN_API_KEY"):
+                params["apikey"] = os.getenv("ETHERSCAN_API_KEY")
+            
+            try:
+                print(f"[{self.name}] Fetching ABI from {api_url} for {addr}...")
+                resp = requests.get(api_url, params=params, timeout=12)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("status") == "1":
+                        res = data.get("result")
+                        return json.loads(res) if isinstance(res, str) else res
+                    else:
+                        print(f"[{self.name}] Explorer error: {data.get('message') or data.get('result')}")
+            except Exception as e:
+                print(f"[{self.name}] Error fetching raw ABI: {e}")
+            return None
+
+        # Try to detect if it's a proxy first (on Cronos)
+        if chain == "cronos":
+            params = {"module": "contract", "action": "getsourcecode", "address": address, "apikey": "okUm6990qPhrWWyuUHbKekc6biHBRJn8"}
+            try:
+                s_resp = requests.get(api_url, params=params, timeout=12)
+                if s_resp.status_code == 200:
+                    s_data = s_resp.json()
+                    if s_data.get("status") == "1" and s_data.get("result"):
+                        res = s_data.get("result")[0]
+                        if res.get("Proxy") == "1" and res.get("Implementation"):
+                            impl = res.get("Implementation")
+                            print(f"[{self.name}] Proxy detected! Following implementation: {impl}")
+                            # Try getabi on implementation
+                            abi = fetch_raw(impl)
+                            if abi and any(x.get('type') == 'function' for x in abi):
+                                return abi
+            except: pass
+
+        # Fallback to direct ABI fetch
+        abi = fetch_raw(address)
+        if abi:
+            try:
                 with open(cache_file, "w") as f:
                     json.dump(abi, f)
-                return abi
-        except Exception as e:
-            print(f"Error fetching ABI: {e}")
+            except: pass
+            return abi
             
         return None
 
     def _get_contract_name(self, abi: List[Dict[str, Any]]) -> Optional[str]:
-        """Attempts to find a name for the contract from the ABI or bytecode."""
-        # In a real impl, we'd check common function like name() or look at explorer metadata
+        # Try to find a hint in the ABI functions
         return None
