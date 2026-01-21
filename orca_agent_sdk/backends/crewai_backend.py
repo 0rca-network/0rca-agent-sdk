@@ -62,16 +62,77 @@ class CrewAIBackend(AbstractAgentBackend):
                         headers=m.get("headers", {})
                     ))
 
+        # Resolve native tools (support instances or string names)
+        raw_native_tools = self.config.backend_options.get("native_tools", [])
+        self.native_tools = []
+        for t in raw_native_tools:
+            if isinstance(t, str):
+                resolved = self._resolve_tool_by_name(t)
+                if resolved:
+                    self.native_tools.append(resolved)
+            else:
+                # Assume it's already a tool instance
+                self.native_tools.append(t)
+
         # Create the CrewAI Agent
         self.crew_agent = Agent(
             role=self.config.backend_options.get("role", "Sovereign AI Agent"),
             goal=self.config.backend_options.get("goal", "Execute tasks autonomously and monetarily."),
             backstory=self.config.backend_options.get("backstory", "An expert agent operating on the Cronos network with access to specialized tools."),
             llm=self.llm,
+            tools=self.native_tools,
             mcps=self.mcps,
             verbose=True,
             allow_delegation=False
         )
+
+    def _resolve_tool_by_name(self, name: str) -> Any:
+        """
+        Dynamically resolve and instantiate CrewAI tools by name.
+        """
+        try:
+            # Import on demand to avoid requiring crewai_tools if not used
+            import crewai_tools
+            
+            # Map of common tool names to their classes in crewai_tools
+            tools_map = {
+                "DirectoryReadTool": "DirectoryReadTool",
+                "FileReadTool": "FileReadTool",
+                "SerperDevTool": "SerperDevTool",
+                "WebsiteSearchTool": "WebsiteSearchTool",
+                "CodeInterpreterTool": "CodeInterpreterTool",
+                "GithubSearchTool": "GithubSearchTool",
+                "TXTSearchTool": "TXTSearchTool",
+                "JSONSearchTool": "JSONSearchTool",
+                "PDFSearchTool": "PDFSearchTool",
+                "ScrapeWebsiteTool": "ScrapeWebsiteTool",
+                "BrowserbaseLoadTool": "BrowserbaseLoadTool",
+                "CodeDocsSearchTool": "CodeDocsSearchTool",
+                "CSVSearchTool": "CSVSearchTool",
+                "DirectorySearchTool": "DirectorySearchTool",
+                "DOCXSearchTool": "DOCXSearchTool",
+                "EXASearchTool": "EXASearchTool",
+                "FirecrawlSearchTool": "FirecrawlSearchTool",
+                "MDXSearchTool": "MDXSearchTool",
+                "PGSearchTool": "PGSearchTool",
+                "XMLSearchTool": "XMLSearchTool",
+                "YoutubeChannelSearchTool": "YoutubeChannelSearchTool",
+                "ApifyActorsTool": "ApifyActorsTool",
+                "VisionTool": "VisionTool",
+                "RagTool": "RagTool",
+                "YoutubeVideoSearchTool": "YoutubeVideoSearchTool"
+            }
+            
+            if name in tools_map:
+                class_name = tools_map[name]
+                tool_class = getattr(crewai_tools, class_name)
+                # Instantiate with default settings
+                return tool_class()
+            
+            return None
+        except Exception as e:
+            logging.warning(f"Could not resolve tool '{name}': {e}")
+            return None
 
     def list_tools(self) -> List[str]:
         """

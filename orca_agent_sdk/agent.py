@@ -28,7 +28,16 @@ class OrcaAgent:
     ):
         self.name = name
         self.model = model
-        self.tools = tools or []
+        # Process tools: separate MCP clusters (dicts) from native CrewAI/Python tools
+        self.mcps = []
+        self.native_tools = []
+        if tools:
+            for t in tools:
+                if isinstance(t, dict):
+                    self.mcps.append(t)
+                else:
+                    self.native_tools.append(t)
+
         self.credits_file = credits_file
         self.base_price = price
         self.api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -45,7 +54,8 @@ class OrcaAgent:
             "role": self.name,
             "goal": "Expertly assist the user.",
             "backstory": system_prompt,
-            "mcps": self.tools,
+            "mcps": self.mcps,
+            "native_tools": self.native_tools,
             "provider_api_key": self.api_key
         }
 
