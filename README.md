@@ -23,7 +23,7 @@ graph TD
     subgraph "Persistence & Economic"
         Core --> Logs[(SQLite Persistence)]
         Core --> Vault[Sovereign Vault Contract]
-        Vault -->|Verify & Settle| Blockchain[Cronos zkEVM]
+        Vault -->|Verify & Settle| Blockchain[Cronos EVM]
     end
     
     Auth -->|Not Funded| Challenge[402 Payment Required]
