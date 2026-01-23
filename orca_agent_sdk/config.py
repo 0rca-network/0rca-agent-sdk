@@ -37,7 +37,7 @@ class AgentConfig:
     usdc_address: str = "0x38Bf87D7281A2F84c8ed5aF1410295f7BD4E20a1" # Cronos Testnet USDC
     
     # Local persistence
-    db_path: str = "agent_local.db"
+    db_path: str = "/tmp/agent_local.db"
     identity_wallet_path: str = "agent_identity.json"
 
     # Internal timeout

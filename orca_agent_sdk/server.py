@@ -27,10 +27,15 @@ class AgentServer:
         self.config.validate()
         
         # 0. Setup File Logging
-        self.log_file_path = "agent_server.log"
+        self.log_file_path = "/tmp/agent_server.log"
         # Reset log on start
-        with open(self.log_file_path, "w", encoding="utf-8") as f:
-            f.write("--- SERVER STARTING ---\n")
+        try:
+            with open(self.log_file_path, "w", encoding="utf-8") as f:
+                f.write("--- SERVER STARTING ---\n")
+        except PermissionError:
+            # Fallback for environments where /tmp isn't writable or root restricted
+            print(f"Warning: Cannot write to {self.log_file_path}. Continuing without file logs.")
+            self.log_file_path = None
         
         self._log("Agent Server Initializing...")
 
