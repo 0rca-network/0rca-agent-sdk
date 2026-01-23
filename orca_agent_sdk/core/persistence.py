@@ -17,7 +17,7 @@ def init_db(db_path: str) -> None:
                 prompt TEXT,
                 payment_token TEXT,
                 status TEXT NOT NULL,
-                created_at INTEGER DEFAULT (unixepoch()),
+                created_at INTEGER DEFAULT (strftime('%s', 'now')),
                 completed_at INTEGER,
                 output TEXT
             );
@@ -42,7 +42,7 @@ def update_request_success(db_path: str, request_id: str, output: str, payment_t
         conn.execute(
             """
             UPDATE request_log 
-            SET status = 'succeeded', output = ?, payment_token = ?, completed_at = unixepoch() 
+            SET status = 'succeeded', output = ?, payment_token = ?, completed_at = strftime('%s', 'now') 
             WHERE request_id = ?
             """,
             (output, payment_token, request_id),
