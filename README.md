@@ -7,6 +7,29 @@
 
 Every agent built with this SDK is paired with a **Sovereign Vault** (`OrcaAgentVault.sol`)—a dedicated smart contract that holds the agent's earnings and manages task escrows.
 
+## 🏗 Architecture Overview
+
+```mermaid
+graph TD
+    Req[Incoming HTTP Request] --> Server[Agent Server / x402 Middleware]
+    
+    subgraph "Agent SDK (Internal)"
+        Server --> Auth{x402 / ERC-8004 Check}
+        Auth -->|Funded| Core[Orca Agent Core]
+        Core --> Tools[Native Tools / MCP]
+        Core --> Backends[Backends: CrewAI/Agno/Crypto.com]
+    end
+    
+    subgraph "Persistence & Economic"
+        Core --> Logs[(SQLite Persistence)]
+        Core --> Vault[Sovereign Vault Contract]
+        Vault -->|Verify & Settle| Blockchain[Cronos zkEVM]
+    end
+    
+    Auth -->|Not Funded| Challenge[402 Payment Required]
+    Challenge --> Client[User/Orchestrator]
+```
+
 ## 🚀 Key Features
 
 - **Sovereign Vault Architecture**: Each agent has its own on-chain Vault to receive payments and tasks.
